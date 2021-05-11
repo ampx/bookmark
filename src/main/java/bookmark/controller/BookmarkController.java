@@ -1,6 +1,8 @@
 package bookmark.controller;
 
-import model.util.time.Time;
+import bookmark.Dao.BookmarkDao;
+import bookmark.model.Bookmark;
+import util.time.model.Time;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -13,7 +15,7 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @RestController
 public class BookmarkController {
 
-    BookmarkDao bookmarkDao;
+    //BookmarkDao bookmarkDao;
 
     {
         try {

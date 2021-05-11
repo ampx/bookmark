@@ -1,6 +1,7 @@
 package bookmark.service;
 
-import model.util.time.Time;
+import bookmark.Dao.BookmarkDao;
+import util.time.model.Time;
 
 import java.util.*;
 
