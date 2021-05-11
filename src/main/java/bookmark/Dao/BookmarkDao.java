@@ -56,7 +56,7 @@ public interface BookmarkDao {
 
     public Boolean updateState(String bookmarkName, Integer state);
 
-    public Boolean saveBookmarkConfig(String bookmarkName, HashMap newConfig);
+    public Boolean saveBookmarkConfig(String bookmarkName, HashMap<String, Object> newConfig);
 
     public Boolean updateBookmarkConfig(String bookmarkName, HashMap<String, Object> updateConfig);
 }

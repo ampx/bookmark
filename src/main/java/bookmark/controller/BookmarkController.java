@@ -2,6 +2,7 @@ package bookmark.controller;
 
 import bookmark.Dao.BookmarkDao;
 import bookmark.model.Bookmark;
+import bookmark.service.BookmarksService;
 import util.time.model.Time;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -15,7 +16,7 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @RestController
 public class BookmarkController {
 
-    //BookmarkDao bookmarkDao;
+    BookmarksService bookmarkService;
 
     {
         try {
@@ -30,7 +31,7 @@ public class BookmarkController {
     public Map getBookmarksData(@RequestParam Map<String, String> params)
     {
         if (params.containsKey("data") && params.get("data").equals("bookmarks")) {
-            return Collections.singletonMap("bookmarks", bookmarkDao.bookmarkList());
+            return Collections.singletonMap("bookmarks", bookmarkService.getBookmarkList());
         } else {
             return null;
         }
@@ -38,7 +39,7 @@ public class BookmarkController {
 
     @PutMapping("/bookmarks")
     public Map createBookmark(@RequestBody Map<String, Object> body) {
-        return Collections.singletonMap("success", bookmarkDao.createBookmark((String) body.get("name"),
+        return Collections.singletonMap("success", bookmarkService.createBookmark((String) body.get("name"),
                 (HashMap)body.get("config")));
     }
 
@@ -50,73 +51,49 @@ public class BookmarkController {
     @GetMapping("/bookmarks/{bookmarkName}")
     public void getBookmarkData(@PathVariable String bookmarkName, @RequestParam Map<String, String> params)
     {
-        if (bookmarkDao.bookmarkExists(bookmarkName)) {
+        if (bookmarkService.bookmarkExists(bookmarkName)) {
             return;
         }
         throw new ResponseStatusException(NOT_FOUND, "Unable to find resource");
     }
 
     @PutMapping("/bookmarks/{bookmarkName}")
-    public Map createBookmark(@PathVariable String bookmarkName, @RequestBody Map<String, Object> body) {
-        return Collections.singletonMap("success", bookmarkDao.updateBookmarkConfig(bookmarkName,
+    public Map updateBookmarkConfig(@PathVariable String bookmarkName, @RequestBody Map<String, Object> body) {
+        return Collections.singletonMap("success", bookmarkService.updateBookmarkConfig(bookmarkName,
                 (HashMap)body.get("config")));
     }
 
     @PostMapping("/bookmarks/{bookmarkName}")
-    public Map updateBookmark(@PathVariable String bookmarkName, @RequestBody Map<String, Object> body) {
-        return Collections.singletonMap("success", bookmarkDao.saveBookmarkConfig(bookmarkName,
+    public Map saveBookmarkConfig(@PathVariable String bookmarkName, @RequestBody Map<String, Object> body) {
+        return Collections.singletonMap("success", bookmarkService.saveBookmarkConfig(bookmarkName,
                 (HashMap)body.get("config")));
     }
 
     @GetMapping("/bookmarks/{bookmarkName}/bookmark")
     public List<Bookmark> getBookmarks(@PathVariable String bookmarkName, @RequestParam Map<String, Object> params)
     {
-        List<Bookmark> bookmarks = null;
-        if (bookmarkDao.bookmarkExists(bookmarkName)) {
-            if (params.containsKey("data") && params.get("data").equals("*")) {
-                bookmarks = bookmarkDao.getProgress(bookmarkName, null, null, null);
-            } else if (params.containsKey("top") || params.containsKey("from") || params.containsKey("to")) {
-                Time from = null;
-                Time to = null;
-                if (params.containsKey("from")) {
-                    from = Time.parse((String) params.get("from"));
-                }
-                if (params.containsKey("to")) {
-                    to = Time.parse((String) params.get("to"));
-                }
-                bookmarks = bookmarkDao.getProgress(bookmarkName, from, to, Integer.parseInt((String) params.get("top")));
-            } else { //return last inserted bookmark
-                bookmarks = bookmarkDao.getProgress(bookmarkName, null, null, 1);
-            }
-
-        } else {
+        try {
+            return bookmarkService.getBookmarks(bookmarkName, params);
+        } catch (Exception e) {
             throw new ResponseStatusException(BAD_REQUEST, "Unable to find resource");
         }
-        return bookmarks;
+
     }
 
     @PostMapping("/bookmarks/{bookmarkName}/bookmark")
     public Map saveBookmark(@PathVariable String bookmarkName, @RequestBody List<Bookmark> bookmarks) {
-        if (bookmarkDao.bookmarkExists(bookmarkName)) {
-            if (bookmarks != null && bookmarkDao.saveProgress(bookmarkName, bookmarks)) {
-                return Collections.singletonMap("success", true);
-            } else {
-                return Collections.singletonMap("success", false);
-            }
-        } else {
+        try {
+            return Collections.singletonMap("success", bookmarkService.saveBookmark(bookmarkName, bookmarks));
+        }catch (Exception e) {
             throw new ResponseStatusException(BAD_REQUEST, "Unable to find resource");
         }
     }
 
     @PutMapping("/bookmarks/{bookmarkName}/bookmark")
     public Map updateBookmark(@PathVariable String bookmarkName, @RequestBody List<Bookmark> bookmarks) {
-        if (bookmarkDao.bookmarkExists(bookmarkName)) {
-            if (bookmarks != null && bookmarkDao.updateProgress(bookmarkName, bookmarks)) {
-                return Collections.singletonMap("success", true);
-            } else {
-                return Collections.singletonMap("success", false);
-            }
-        } else {
+        try {
+            return Collections.singletonMap("success", bookmarkService.updateBookmark(bookmarkName, bookmarks));
+        }catch (Exception e) {
             throw new ResponseStatusException(BAD_REQUEST, "Unable to find resource");
         }
     }
