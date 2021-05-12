@@ -1,26 +1,21 @@
 package bookmark.service;
 
-import bookmark.Dao.BookmarkDao;
+import bookmark.dao.BookmarkDao;
 import bookmark.model.Bookmark;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 import util.time.model.Time;
 
-import javax.naming.ConfigurationException;
 import java.util.*;
 
-import static org.springframework.http.HttpStatus.BAD_REQUEST;
-import static org.springframework.http.HttpStatus.NOT_FOUND;
-
 public class BookmarksService {
+
+    public static final Integer UNLOCKED = 0;
+    public static final Integer LOCKED = 1;
+    public static final Integer ERROR = 2;
 
     Timer timer;
     Integer cleanupPeriodMins = 30;
     Integer defaultRetentionDays = 30;
     BookmarkDao bookmarkDao;
-
-
-
 
     public List<String> getBookmarkList()
     {
@@ -94,7 +89,7 @@ public class BookmarksService {
         }
     }
 
-    public List<Bookmark> getFailedBookmarks(String bookmarkName, HashMap<String, Object> filter)
+    public List<Bookmark> getFailedBookmarks(String bookmarkName, Map<String, Object> filter)
     {
         List<Bookmark> bookmarks = null;
         if (bookmarkDao.bookmarkExists(bookmarkName)) {
@@ -119,82 +114,45 @@ public class BookmarksService {
         return bookmarks;
     }
 
-    public Map saveFailedBookmarks(String bookmarkName, List<Bookmark> bookmarks) {
+    public Boolean saveFailedBookmarks(String bookmarkName, List<Bookmark> bookmarks) {
         if (bookmarkDao.bookmarkExists(bookmarkName)) {
             if (bookmarks != null && bookmarkDao.saveFailed(bookmarkName, bookmarks)) {
-                return Collections.singletonMap("success", true);
+                return true;
             } else {
-                return Collections.singletonMap("success", false);
+                return false;
             }
         } else {
-            throw new ResponseStatusException(BAD_REQUEST, "Unable to find resource");
+            throw new IllegalArgumentException("Bookmark doesn't exists");
         }
     }
 
-    public Map updateFailedBookmarks(String bookmarkName, List<Bookmark> bookmarks) {
+    public Boolean updateFailedBookmarks(String bookmarkName, List<Bookmark> bookmarks) {
         if (bookmarkDao.bookmarkExists(bookmarkName)) {
             if (bookmarks != null && bookmarkDao.updateFailed(bookmarkName, bookmarks)) {
-                return Collections.singletonMap("success", true);
+                return true;
             } else {
-                return Collections.singletonMap("success", false);
+                return false;
             }
         } else {
-            throw new ResponseStatusException(BAD_REQUEST, "Unable to find resource");
+            throw new IllegalArgumentException("Bookmark doesn't exists");
         }
     }
 
-
-
-
-
-
-
-
-    public Map getBookmarkState(String bookmarkName)
+    public Integer getBookmarkState(String bookmarkName)
     {
-        List<Bookmark> bookmarks = null;
         if (bookmarkDao.bookmarkExists(bookmarkName)) {
-            return Collections.singletonMap("state", bookmarkDao.getState(bookmarkName));
+            return bookmarkDao.getState(bookmarkName);
         }
-        throw new ResponseStatusException(BAD_REQUEST, "Unable to find resource");
+        throw new IllegalArgumentException("Bookmark doesn't exists");
     }
 
-    public Map saveBookmarkState(String bookmarkName, Map stateMap) {
+    public Boolean updateBookmarkState(String bookmarkName, Integer state) {
         if (bookmarkDao.bookmarkExists(bookmarkName)) {
-            if (stateMap != null && stateMap.containsKey("state")
-                    && bookmarkDao.updateState(bookmarkName, (Integer)stateMap.get("state"))) {
-                return Collections.singletonMap("success", true);
-            } else {
-                return Collections.singletonMap("success", false);
-            }
+            return bookmarkDao.updateState(bookmarkName, state);
         } else {
-            throw new ResponseStatusException(BAD_REQUEST, "Unable to find resource");
+            throw new IllegalArgumentException("Bookmark doesn't exists");
         }
     }
-
-    public Map updateBookmarkState(String bookmarkName, Map stateMap) {
-        if (bookmarkDao.bookmarkExists(bookmarkName)) {
-            if (stateMap != null && stateMap.containsKey("state")
-                    && bookmarkDao.updateState(bookmarkName, (Integer)stateMap.get("state"))) {
-                return Collections.singletonMap("success", true);
-            } else {
-                return Collections.singletonMap("success", false);
-            }
-        } else {
-            throw new ResponseStatusException(BAD_REQUEST, "Unable to find resource");
-        }
-    }
-
-
-
-
-
-
-
-
-
-
-
 
     public void enableCleanup(){
         if (timer != null) {

@@ -1,6 +1,7 @@
-package bookmark.Dao;
+package bookmark.dao;
 
 import bookmark.model.Bookmark;
+import bookmark.service.BookmarksService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -377,7 +378,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
 
     private Boolean addBookmarkState(String bookmarkName) {
         String sql = "INSERT INTO " + stateTable + "(name,timestamp,state) VALUES('" + bookmarkName + "','"
-                + Time.now().mysqlString() + "'," + Bookmark.UNLOCKED + ")";
+                + Time.now().mysqlString() + "'," + BookmarksService.UNLOCKED + ")";
         try {
             return executeStatement(bookmarkName, sql);
         } catch (SQLException throwables) {

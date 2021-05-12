@@ -2,8 +2,8 @@ package util.time.model;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import jackson.time.TimeDeserializer;
-import jackson.time.TimeSerializer;
+import util.time.logic.TimeDeserializer;
+import util.time.logic.TimeSerializer;
 
 import java.sql.Timestamp;
 import java.text.ParsePosition;

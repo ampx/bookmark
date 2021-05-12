@@ -1,18 +1,8 @@
-package bookmark.Dao;
+package bookmark.dao;
 
 import bookmark.model.Bookmark;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import util.time.model.Time;
 
-import javax.naming.ConfigurationException;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.sql.*;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 

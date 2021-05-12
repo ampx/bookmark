@@ -1,4 +1,4 @@
-package bookmark.Dao;
+package bookmark.dao;
 
 import bookmark.model.Bookmark;
 import util.time.model.Time;
