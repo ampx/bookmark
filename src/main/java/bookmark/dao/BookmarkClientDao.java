@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 import util.time.model.Time;
 
+import javax.naming.ConfigurationException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -15,6 +16,14 @@ public class BookmarkClientDao implements BookmarkDao{
 
     String url = "http://localhost:8080/bookmarks";
     RestTemplate restTemplate = new RestTemplate();
+
+    public BookmarkClientDao(String url) throws ConfigurationException {
+        this.url = url + "/bookmarks";
+        ResponseEntity<String> response = restTemplate.getForEntity(this.url, String.class);
+        if (response.getStatusCode().is2xxSuccessful()) {
+            throw new ConfigurationException("Initial configuration failed... bookmark path is not writable");
+        }
+    }
 
     @Override
     public Boolean bookmarkExists(String bookmarkName) {

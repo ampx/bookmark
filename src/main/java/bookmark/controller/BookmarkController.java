@@ -2,6 +2,7 @@ package bookmark.controller;
 
 import bookmark.model.Bookmark;
 import bookmark.service.BookmarksService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -13,6 +14,7 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @RestController
 public class BookmarkController {
 
+    @Autowired
     BookmarksService bookmarkService;
 
     @GetMapping("/bookmarks")

@@ -7,7 +7,7 @@ import java.util.HashMap;
 public class Bookmark {
 
     Time timestamp;
-    HashMap metrics;
+    HashMap<String, Object> metrics;
 
     public Time getTimestamp() {
         return timestamp;
@@ -17,11 +17,11 @@ public class Bookmark {
         this.timestamp = timestamp;
     }
 
-    public HashMap getMetrics() {
+    public HashMap<String, Object> getMetrics() {
         return metrics;
     }
 
-    public void setMetrics(HashMap metrics) {
+    public void setMetrics(HashMap<String, Object> metrics) {
         this.metrics = metrics;
     }
 }

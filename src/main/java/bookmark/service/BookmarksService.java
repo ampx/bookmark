@@ -17,6 +17,18 @@ public class BookmarksService {
     Integer defaultRetentionDays = 30;
     BookmarkDao bookmarkDao;
 
+    public void setCleanupPeriodMins(Integer cleanupPeriodMins) {
+        this.cleanupPeriodMins = cleanupPeriodMins;
+    }
+
+    public void setDefaultRetentionDays(Integer defaultRetentionDays) {
+        this.defaultRetentionDays = defaultRetentionDays;
+    }
+
+    public void setBookmarkDao(BookmarkDao bookmarkDao) {
+        this.bookmarkDao = bookmarkDao;
+    }
+
     public List<String> getBookmarkList()
     {
         return bookmarkDao.bookmarkList();

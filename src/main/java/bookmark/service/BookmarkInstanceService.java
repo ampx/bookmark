@@ -8,8 +8,8 @@ import java.util.List;
 import java.util.Map;
 
 public class BookmarkInstanceService {
-    String bookmarkName;
-    BookmarksService bookmarksService;
+    private String bookmarkName;
+    private BookmarksService bookmarksService;
 
     public List<String> getBookmarkList()
     {
@@ -68,5 +68,11 @@ public class BookmarkInstanceService {
         return bookmarksService.updateBookmarkState(bookmarkName, state);
     }
 
+    public void setBookmarkName(String bookmarkName) {
+        this.bookmarkName = bookmarkName;
+    }
 
+    public void setBookmarksService(BookmarksService bookmarksService) {
+        this.bookmarksService = bookmarksService;
+    }
 }
