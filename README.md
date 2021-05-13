@@ -13,7 +13,7 @@ Service to persist and share ETL pipeline progress across different pipelines.
 The service can be used in a local mode or client-server mode.
 In client-server mode, progress is saved to a centralized location that can then be 
 consumed by other processes.
-Centralized checkpointing service that let's you combine ETL pipelines across different languages.
+Centralized checkpointing service that lets you combine ETL pipelines across different languages.
 
 # Benefits
 Centralized checkpoint

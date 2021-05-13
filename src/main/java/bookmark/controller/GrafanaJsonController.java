@@ -18,7 +18,7 @@ public class GrafanaJsonController {
 
     List<String> bookmarkDataTypes = Arrays.asList(new String[]{"*", "progress", "state", "failed"});
 
-    @PostMapping("/api/v2/query")
+    @PostMapping("/bookmarks/query")
     public Table query(@RequestBody HashMap request) {
         HashMap targetQuery = (HashMap<String, Object>)
                 ((HashMap<String, Object>) ((ArrayList)request.get("targets")).get(0)).get("data");
@@ -38,12 +38,12 @@ public class GrafanaJsonController {
     }
 
     @ResponseStatus(HttpStatus.OK)
-    @GetMapping("/api/v2")
+    @GetMapping("/bookmarks/v2")
     public String healthCheck() {
         return "Bookmark Grafana Backend";
     }
 
-    @PostMapping("/api/v2/search")
+    @PostMapping("/bookmarks/search")
     public List<String> search(@RequestBody HashMap request) {
         if (request != null && request.containsKey("bookmarks")) {
             return bookmarksService.getBookmarkList();
