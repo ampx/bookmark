@@ -17,24 +17,34 @@ public class GrafanaJsonController {
     BookmarksService bookmarksService;
 
     List<String> bookmarkDataTypes = Arrays.asList(new String[]{"*", "progress", "state", "failed"});
+    List emptyResponse = new ArrayList();
 
     @PostMapping("/bookmarks/query")
-    public Table query(@RequestBody HashMap request) {
-        HashMap targetQuery = (HashMap<String, Object>)
-                ((HashMap<String, Object>) ((ArrayList)request.get("targets")).get(0)).get("data");
-        String target = (String) targetQuery.get("target");
-        String bookmarkName = (String) targetQuery.get("bookmarkName");
-        if (target.equals("progress")) {
-            List<Bookmark> records = bookmarksService.getBookmarks(bookmarkName, (HashMap<String, Object>) targetQuery.get("args"));
-            return GrafanaDTO.bookmarkRecordsToTable(records);
-        } else if (target.equals("failed")) {
-            List<Bookmark> records = bookmarksService.getFailedBookmarks(bookmarkName, (HashMap<String, Object>) targetQuery.get("args"));
-            return GrafanaDTO.bookmarkRecordsToTable(records);
-        } else if (target.equals("state")) {
-            Integer state = bookmarksService.getBookmarkState(bookmarkName);
-            return GrafanaDTO.stateToTable(state);
-        }
-        return null;
+    public List<Table> query(@RequestBody HashMap request) {
+        try {
+            HashMap<String, Object> target = ((HashMap<String, Object>) ((ArrayList) request.get("targets")).get(0));
+            String targetName = (String) target.get("target");
+            Object data = target.get("data");
+            if (data instanceof HashMap) {
+                HashMap targetQuery = (HashMap<String, Object>) data;
+                String bookmarkName = (String) targetQuery.get("bookmarkName");
+                if (targetName.equals("progress")) {
+                    List<Bookmark> records = bookmarksService.getBookmarks(bookmarkName, (HashMap<String, Object>) targetQuery.get("args"));
+                    return Arrays.asList(new Table[]{GrafanaDTO.bookmarkRecordsToTable(records)});
+                } else if (targetName.equals("failed")) {
+                    List<Bookmark> records = bookmarksService.getFailedBookmarks(bookmarkName, (HashMap<String, Object>) targetQuery.get("args"));
+                    return Arrays.asList(new Table[]{GrafanaDTO.bookmarkRecordsToTable(records)});
+                } else if (targetName.equals("state")) {
+                    Integer state = bookmarksService.getBookmarkState(bookmarkName);
+                    return Arrays.asList(new Table[]{GrafanaDTO.stateToTable(state)});
+                } else if (targetName.equals("*")) {
+                    Integer state = bookmarksService.getBookmarkState(bookmarkName);
+                    List<Bookmark> records = bookmarksService.getBookmarks(bookmarkName, (HashMap<String, Object>) targetQuery.get("args"));
+                    return Arrays.asList(new Table[]{GrafanaDTO.bookmarkRecordsToTable(records), GrafanaDTO.stateToTable(state)});
+                }
+            }
+        } catch(Exception e){}
+        return emptyResponse;
     }
 
     @ResponseStatus(HttpStatus.OK)
@@ -45,11 +55,15 @@ public class GrafanaJsonController {
 
     @PostMapping("/bookmarks/search")
     public List<String> search(@RequestBody HashMap request) {
-        if (request != null && request.containsKey("bookmarks")) {
-            return bookmarksService.getBookmarkList();
-        } else {
-            return bookmarkDataTypes;
+        if (request != null && request.containsKey("target")) {
+            String target = (String) request.get("target");
+            if (target.equals("bookmarks")) {
+                return bookmarksService.getBookmarkList();
+            } else if (target.equals("")) {
+                return bookmarkDataTypes;
+            }
         }
+        return new ArrayList<>();
     }
 }
 

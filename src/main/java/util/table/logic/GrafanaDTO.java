@@ -10,15 +10,21 @@ public class GrafanaDTO {
     public static Table bookmarkRecordsToTable(List<Bookmark> bookmarks) {
         if (bookmarks.size() > 0) {
             Bookmark sampleBookmark = bookmarks.get(0);
-            Integer columnNum = sampleBookmark.getMetrics().size() + 1;
+            Integer metricCount = 0;
+            if (sampleBookmark.getMetrics() != null) {
+                metricCount = sampleBookmark.getMetrics().size();
+            }
+            Integer columnNum = metricCount + 1;
             Table table = new Table(columnNum);
             String[] headers = new String[columnNum];
             int i = 0;
             headers[i++] = "timestamp";
             List<String> metricNames = new ArrayList<>();
-            for (String header : sampleBookmark.getMetrics().keySet()) {
-                headers[i++] = header;
-                metricNames.add(header);
+            if (metricCount > 0) {
+                for (String header : sampleBookmark.getMetrics().keySet()) {
+                    headers[i++] = header;
+                    metricNames.add(header);
+                }
             }
             table.setHeaders(headers);
             for (Bookmark bookmark : bookmarks) {

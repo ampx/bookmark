@@ -44,7 +44,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
     }
 
     public Boolean bookmarkExists(String bookmarkName) {
-        return Files.exists(Paths.get(path + bookmarkName));
+        return Files.exists(Paths.get(path + bookmarkName + ".db"));
     }
 
     public List bookmarkList() {

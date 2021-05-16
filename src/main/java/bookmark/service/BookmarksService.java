@@ -54,6 +54,9 @@ public class BookmarksService {
     public List<Bookmark> getBookmarks(String bookmarkName, Map<String, Object> filters)
     {
         List<Bookmark> bookmarks = null;
+        if (filters == null) {
+            filters = new HashMap();
+        }
         if (bookmarkDao.bookmarkExists(bookmarkName)) {
             if (filters.containsKey("data") && filters.get("data").equals("*")) {
                 bookmarks = bookmarkDao.getProgress(bookmarkName, null, null, null);

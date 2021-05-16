@@ -7,6 +7,8 @@ Development notes:
 * 2021-05-12
   * Added Spring configurations
   * Added Grafana Json controller for server monitoring
+* 2021-05-13
+  * Updated pom to build a runnable server jar and client library jar
 
 # Bookmark Service Overview
 Service to persist and share ETL pipeline progress across different pipelines.  
@@ -23,6 +25,9 @@ Monitoring
 
 # Server Monitor Notes
 TBD
+
+# build 
+mvn clean compile package
 
 **Content:**
 
