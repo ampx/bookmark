@@ -34,6 +34,14 @@ public class Time{
         return new_time;
     }
 
+    public static Time parse(Integer linuxTime){
+        return new Time(Instant.ofEpochSecond(linuxTime));
+    }
+
+    public static Time parse(Long linuxTime){
+        return new Time(Instant.ofEpochMilli(linuxTime));
+    }
+
     public static Time parse(String time, String pattern){
         DateTimeFormatter formatter = DateTimeFormatter
                 .ofPattern(pattern)

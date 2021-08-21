@@ -18,7 +18,7 @@ public class GrafanaJsonController {
 
     List<String> bookmarkDataTypes = Arrays.asList(new String[]{"*", "progress", "state", "failed"});
     List emptyResponse = new ArrayList();
-
+/*
     @PostMapping("/bookmarks/query")
     public List<Table> query(@RequestBody HashMap request) {
         try {
@@ -46,7 +46,7 @@ public class GrafanaJsonController {
         } catch(Exception e){}
         return emptyResponse;
     }
-
+*/
     @ResponseStatus(HttpStatus.OK)
     @GetMapping("/bookmarks/v2")
     public String healthCheck() {

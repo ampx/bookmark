@@ -11,6 +11,7 @@ import javax.naming.ConfigurationException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class BookmarkClientDao implements BookmarkDao{
 
@@ -63,12 +64,7 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean cleanProgress(String bookmarkName, Time cutofftime) {
-        return null;
-    }
-
-    @Override
-    public Boolean cleanFailed(String bookmarkName, Time cutofftime) {
+    public Boolean cleanTxnRecords(String bookmarkName, String context, Time cutofftime) {
         return null;
     }
 
@@ -98,8 +94,8 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean saveFailed(String bookmarkName, List<Bookmark> bookmarks) {
-        String bookmarkUrl = url + "/" + bookmarkName + "/failed" ;
+    public Boolean saveTransactions(String bookmarkName, String transactionContext, List<Bookmark> bookmarks) {
+        String bookmarkUrl = url + "/" + bookmarkName + "/txn/" + transactionContext ;
         HttpEntity<List<Bookmark>> request = new HttpEntity<>(bookmarks);
         HashMap result = restTemplate.postForObject(bookmarkUrl, request, HashMap.class);
         if (result != null) {
@@ -109,8 +105,8 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean updateFailed(String bookmarkName, List<Bookmark> bookmarks) {
-        String bookmarkUrl = url + "/" + bookmarkName + "/failed" ;
+    public Boolean updateTransactions(String bookmarkName, String transactionContext, List<Bookmark> bookmarks) {
+        String bookmarkUrl = url + "/" + bookmarkName + "/txn/" + transactionContext ;
         HttpEntity<List<Bookmark>> request = new HttpEntity<>(bookmarks);
         ResponseEntity<HashMap> result = restTemplate.exchange(bookmarkUrl, HttpMethod.PUT, request, HashMap.class);
         if (result.getBody() != null) {
@@ -120,8 +116,8 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public List<Bookmark> getFailed(String bookmarkName, Time starttime, Time endtime, Integer top) {
-        String bookmarkUrl = url + "/" + bookmarkName + "/failed?" ;
+    public List<Bookmark> getTransactions(String bookmarkName, String transactionContext, Time starttime, Time endtime, Integer top) {
+        String bookmarkUrl = url + "/" + bookmarkName + "/txn/" + transactionContext + "?";
         if (starttime != null) {
             bookmarkUrl += "from=" + starttime.toString();
         }
@@ -132,7 +128,7 @@ public class BookmarkClientDao implements BookmarkDao{
             bookmarkUrl += "top=" + top;
         }
         Bookmark[] response = restTemplate.getForObject(bookmarkUrl, Bookmark[].class);
-        if (response != null && response.length>0) {
+        if (response != null && response.length > 0) {
             return Arrays.asList(response);
         } else {
             return null;
@@ -140,21 +136,17 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean saveProgress(String bookmarkName, List<Bookmark> bookmarks) {
-        String bookmarkUrl = url + "/" + bookmarkName + "/bookmark" ;
-        HttpEntity<List<Bookmark>> request = new HttpEntity<>(bookmarks);
-        HashMap result = restTemplate.postForObject(bookmarkUrl, request, HashMap.class);
-        if (result != null) {
-            return (Boolean) result.get("success");
-        }
-        else return null;
+    public Map<String, Object> getStateValues(String bookmarkName, String stateEntry) {
+        String bookmarkUrl = url + "/" + bookmarkName + "/state" ;
+
+        return restTemplate.getForObject(bookmarkUrl, HashMap.class);
     }
 
     @Override
-    public Boolean updateProgress(String bookmarkName, List<Bookmark> bookmarks) {
-        String bookmarkUrl = url + "/" + bookmarkName + "/bookmark" ;
-        HttpEntity<List<Bookmark>> request = new HttpEntity<>(bookmarks);
-        ResponseEntity<HashMap> result = restTemplate.exchange(bookmarkUrl, HttpMethod.PUT, request, HashMap.class);
+    public Boolean updateStateValues(String bookmarkName, Map<String, Object> stateValues) {
+        String bookmarkUrl = url + "/" + bookmarkName + "/state" ;
+        HttpEntity<Map> request = new HttpEntity<>(stateValues);
+        ResponseEntity<Map> result = restTemplate.exchange(bookmarkUrl, HttpMethod.PUT, request, Map.class);
         if (result.getBody() != null) {
             return (Boolean) result.getBody().get("success");
         }
@@ -162,43 +154,10 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public List<Bookmark> getProgress(String bookmarkName, Time starttime, Time endtime, Integer top) {
-        String bookmarkUrl = url + "/" + bookmarkName + "/bookmark?" ;
-        if (starttime != null) {
-            bookmarkUrl += "from=" + starttime.toString();
-        }
-        if (endtime != null) {
-            bookmarkUrl += "to=" + endtime.toString();
-        }
-        if (top != null) {
-            bookmarkUrl += "top=" + top;
-        }
-        Bookmark[] response = restTemplate.getForObject(bookmarkUrl, Bookmark[].class);
-        if (response != null && response.length>0) {
-            return Arrays.asList(response);
-        } else {
-            return null;
-        }
-    }
-
-    @Override
-    public Integer getState(String bookmarkName) {
+    public Boolean saveStateValues(String bookmarkName, Map<String, Object> stateValues) {
         String bookmarkUrl = url + "/" + bookmarkName + "/state" ;
-        HashMap response = restTemplate.getForObject(bookmarkUrl, HashMap.class);
-        if (response != null ) {
-            return (Integer) response.get("state");
-        } else {
-            return null;
-        }
-    }
-
-    @Override
-    public Boolean updateState(String bookmarkName, Integer state) {
-        String bookmarkUrl = url + "/" + bookmarkName + "/state" ;
-        HashMap putBody = new HashMap();
-        putBody.put("state", state);
-        HttpEntity<HashMap> request = new HttpEntity<>(putBody);
-        ResponseEntity<HashMap> result = restTemplate.exchange(bookmarkUrl, HttpMethod.PUT, request, HashMap.class);
+        HttpEntity<Map> request = new HttpEntity<>(stateValues);
+        ResponseEntity<Map> result = restTemplate.exchange(bookmarkUrl, HttpMethod.POST, request, Map.class);
         if (result.getBody() != null) {
             return (Boolean) result.getBody().get("success");
         }

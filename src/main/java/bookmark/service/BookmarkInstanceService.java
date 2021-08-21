@@ -33,39 +33,30 @@ public class BookmarkInstanceService {
         return bookmarksService.saveBookmarkConfig(bookmarkName, config);
     }
 
-    public List<Bookmark> getBookmarks(Map<String, Object> filters)
+    public List<Bookmark> getTransactions(String context, Map<String, Object> filters)
     {
-        return bookmarksService.getBookmarks(bookmarkName, filters);
+        return bookmarksService.getTransactions(bookmarkName, context, filters);
     }
 
-    public Boolean saveBookmark(List<Bookmark> bookmarks) {
-        return bookmarksService.saveBookmark(bookmarkName, bookmarks);
+    public Boolean saveTransactions(String context, List<Bookmark> bookmarks) {
+        return bookmarksService.saveTransactions(bookmarkName, context, bookmarks);
     }
 
-    public Boolean updateBookmark(List<Bookmark> bookmarks) {
-        return bookmarksService.updateBookmark(bookmarkName, bookmarks);
+    public Boolean updateTransactions(String context, List<Bookmark> bookmarks) {
+        return bookmarksService.updateTransactions(bookmarkName, context, bookmarks);
     }
 
-    public List<Bookmark> getFailedBookmarks(Map<String, Object> filter)
+    public Map<String, Object> getStateValues(Map<String, Object> filters)
     {
-        return bookmarksService.getFailedBookmarks(bookmarkName, filter);
+        return bookmarksService.getStateValues(bookmarkName, filters);
     }
 
-    public Boolean saveFailedBookmarks(String bookmarkName, List<Bookmark> bookmarks) {
-        return bookmarksService.saveFailedBookmarks(bookmarkName, bookmarks);
+    public Boolean updateStateValues(Map<String, Object> stateValues) {
+        return bookmarksService.updateStateValues(bookmarkName, stateValues);
     }
 
-    public Boolean updateFailedBookmarks(List<Bookmark> bookmarks) {
-        return bookmarksService.updateFailedBookmarks(bookmarkName, bookmarks);
-    }
-
-    public Integer getBookmarkState()
-    {
-        return bookmarksService.getBookmarkState(bookmarkName);
-    }
-
-    public Boolean updateBookmarkState(Integer state) {
-        return bookmarksService.updateBookmarkState(bookmarkName, state);
+    public Boolean saveStateValues(Map<String, Object> stateValues) {
+        return bookmarksService.saveStateValues(bookmarkName, stateValues);
     }
 
     public void setBookmarkName(String bookmarkName) {
@@ -74,5 +65,12 @@ public class BookmarkInstanceService {
 
     public void setBookmarksService(BookmarksService bookmarksService) {
         this.bookmarksService = bookmarksService;
+    }
+
+    public BookmarkTransactionInstanceService createTransactionInstanceService(String context) {
+        BookmarkTransactionInstanceService bookmarkTransactionInstanceService = new BookmarkTransactionInstanceService();
+        bookmarkTransactionInstanceService.setBookmarkInstanceService(this);
+        bookmarkTransactionInstanceService.setContextName(context);
+        return bookmarkTransactionInstanceService;
     }
 }

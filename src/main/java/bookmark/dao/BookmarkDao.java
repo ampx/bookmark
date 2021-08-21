@@ -5,6 +5,7 @@ import util.time.model.Time;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public interface BookmarkDao {
     public Boolean bookmarkExists(String bookmarkName);
@@ -15,9 +16,7 @@ public interface BookmarkDao {
 
     public Boolean createBookmark(String bookmarkName, HashMap config);
 
-    public Boolean cleanProgress(String bookmarkName, Time cutofftime);
-
-    public Boolean cleanFailed(String bookmarkName, Time cutofftime);
+    public Boolean cleanTxnRecords(String bookmarkName, String context, Time cutofftime);
 
     public Boolean maintenance();
 
@@ -29,22 +28,18 @@ public interface BookmarkDao {
 
     public Boolean deleteBookmark(String bookmarkName);
 
-    public Boolean saveFailed(String bookmarkName, List<Bookmark> bookmarks);
+    public Boolean saveTransactions(String bookmarkName, String transactionContext, List<Bookmark> bookmarks);
 
-    public Boolean updateFailed(String bookmarkName, List<Bookmark> bookmarks);
+    public Boolean updateTransactions(String bookmarkName, String transactionContext, List<Bookmark> bookmarks);
 
-    public List<Bookmark> getFailed(String bookmarkName, Time starttime, Time endtime, Integer top);
+    public List<Bookmark> getTransactions(String bookmarkName, String transactionContext,
+                                          Time starttime, Time endtime, Integer top);
 
+    public Map<String, Object> getStateValues(String bookmarkName, String stateEntry);
 
-    public Boolean saveProgress(String bookmarkName, List<Bookmark> bookmarks);
+    public Boolean updateStateValues(String bookmarkName, Map<String, Object> stateValues);
 
-    public Boolean updateProgress(String bookmarkName, List<Bookmark> bookmarks);
-
-    public List<Bookmark> getProgress(String bookmarkName, Time starttime, Time endtime, Integer top);
-
-    public Integer getState(String bookmarkName);
-
-    public Boolean updateState(String bookmarkName, Integer state);
+    public Boolean saveStateValues(String bookmarkName, Map<String, Object> stateValues);
 
     public Boolean saveBookmarkConfig(String bookmarkName, HashMap<String, Object> newConfig);
 

@@ -59,88 +59,65 @@ public class BookmarkController {
                 (HashMap)body.get("config")));
     }
 
-    @GetMapping("/bookmarks/{bookmarkName}/bookmark")
-    public List<Bookmark> getBookmarks(@PathVariable String bookmarkName, @RequestParam Map<String, Object> params)
+    @GetMapping("/bookmarks/{bookmark_name}/txn/{transaction_context}")
+    public List<Bookmark> getTransactions(@PathVariable String bookmarkName, @PathVariable String transactionContext,
+                                       @RequestParam Map<String, Object> params)
     {
         try {
-            return bookmarkService.getBookmarks(bookmarkName, params);
-        } catch (Exception e) {
-            throw new ResponseStatusException(BAD_REQUEST);
-        }
-
-    }
-
-    @PostMapping("/bookmarks/{bookmarkName}/bookmark")
-    public Map saveBookmark(@PathVariable String bookmarkName, @RequestBody List<Bookmark> bookmarks) {
-        try {
-            return Collections.singletonMap("success", bookmarkService.saveBookmark(bookmarkName, bookmarks));
-        }catch (Exception e) {
-            throw new ResponseStatusException(BAD_REQUEST);
-        }
-    }
-
-    @PutMapping("/bookmarks/{bookmarkName}/bookmark")
-    public Map updateBookmark(@PathVariable String bookmarkName, @RequestBody List<Bookmark> bookmarks) {
-        try {
-            return Collections.singletonMap("success", bookmarkService.updateBookmark(bookmarkName, bookmarks));
-        }catch (Exception e) {
-            throw new ResponseStatusException(BAD_REQUEST);
-        }
-    }
-
-    @GetMapping("/bookmarks/{bookmarkName}/failed")
-    public List<Bookmark> getFailedBookmarks(@PathVariable String bookmarkName, @RequestParam Map<String, Object> params)
-    {
-        try {
-            return bookmarkService.getFailedBookmarks(bookmarkName, params);
+            return bookmarkService.getTransactions(bookmarkName, transactionContext, params);
         } catch (Exception e) {
             throw new ResponseStatusException(BAD_REQUEST);
         }
     }
 
-    @PostMapping("/bookmarks/{bookmarkName}/failed")
-    public Map saveFailedBookmarks(@PathVariable String bookmarkName, @RequestBody List<Bookmark> bookmarks) {
+    @PostMapping("/bookmarks/{bookmark_name}/txn/{transaction_context}")
+    public Map saveTransactions(@PathVariable String bookmarkName,  @PathVariable String transactionContext,
+                            @RequestBody List<Bookmark> bookmarks) {
         try {
-            return Collections.singletonMap("success", bookmarkService.saveFailedBookmarks(bookmarkName, bookmarks));
+            return Collections.singletonMap("success",
+                    bookmarkService.saveTransactions(bookmarkName, transactionContext ,bookmarks));
         }catch (Exception e) {
             throw new ResponseStatusException(BAD_REQUEST);
         }
     }
 
-    @PutMapping("/bookmarks/{bookmarkName}/failed")
-    public Map updateFailedBookmarks(@PathVariable String bookmarkName, @RequestBody List<Bookmark> bookmarks) {
+    @PutMapping("/bookmarks/{bookmark_name}/txn/{transaction_context}")
+    public Map updateTransactions(@PathVariable String bookmarkName, @PathVariable String transactionContext,
+                              @RequestBody List<Bookmark> bookmarks) {
         try {
-            return Collections.singletonMap("success", bookmarkService.updateFailedBookmarks(bookmarkName, bookmarks));
+            return Collections.singletonMap("success",
+                    bookmarkService.updateTransactions(bookmarkName, transactionContext, bookmarks));
         }catch (Exception e) {
             throw new ResponseStatusException(BAD_REQUEST);
         }
     }
 
     @GetMapping("/bookmarks/{bookmarkName}/state")
-    public Map getBookmarkState(@PathVariable String bookmarkName)
+    public Map getStateValues(@PathVariable String bookmarkName, @RequestParam Map<String, Object> params)
     {
         try {
-            return Collections.singletonMap("state", bookmarkService.getBookmarkState(bookmarkName));
+            return Collections.singletonMap("state",
+                    bookmarkService.getStateValues(bookmarkName, params));
         } catch (Exception e) {
             throw new ResponseStatusException(BAD_REQUEST);
         }
     }
 
     @PostMapping("/bookmarks/{bookmarkName}/state")
-    public Map saveBookmarkState(@PathVariable String bookmarkName, @RequestBody Map stateMap) {
+    public Map saveStateValues(@PathVariable String bookmarkName, @RequestBody Map<String, Object> stateValues) {
         try {
-            Integer state = (Integer)stateMap.get("state");
-            return Collections.singletonMap("success", bookmarkService.updateBookmarkState(bookmarkName, state));
+            return Collections.singletonMap("success",
+                    bookmarkService.saveStateValues(bookmarkName, stateValues));
         }catch (Exception e) {
             throw new ResponseStatusException(BAD_REQUEST);
         }
     }
 
     @PutMapping("/bookmarks/{bookmarkName}/state")
-    public Map updateBookmarkState(@PathVariable String bookmarkName, @RequestBody Map stateMap) {
+    public Map updateStateValues(@PathVariable String bookmarkName, @RequestBody Map<String, Object> stateValues) {
         try {
-            Integer state = (Integer)stateMap.get("state");
-            return Collections.singletonMap("success", bookmarkService.updateBookmarkState(bookmarkName, state));
+            return Collections.singletonMap("success",
+                    bookmarkService.updateStateValues(bookmarkName, stateValues));
         }catch (Exception e) {
             throw new ResponseStatusException(BAD_REQUEST);
         }

@@ -8,10 +8,6 @@ import java.util.*;
 
 public class BookmarksService {
 
-    public static final Integer UNLOCKED = 0;
-    public static final Integer LOCKED = 1;
-    public static final Integer ERROR = 2;
-
     Timer timer;
     Integer cleanupPeriodMins = 30;
     Integer defaultRetentionDays = 30;
@@ -51,122 +47,90 @@ public class BookmarksService {
         return bookmarkDao.saveBookmarkConfig(bookmarkName, config);
     }
 
-    public List<Bookmark> getBookmarks(String bookmarkName, Map<String, Object> filters)
+    public List<Bookmark> getTransactions(String bookmarkName, String transactionContext, Map<String, Object> filters)
     {
-        List<Bookmark> bookmarks = null;
-        if (filters == null) {
-            filters = new HashMap();
-        }
-        if (bookmarkDao.bookmarkExists(bookmarkName)) {
-            if (filters.containsKey("data") && filters.get("data").equals("*")) {
-                bookmarks = bookmarkDao.getProgress(bookmarkName, null, null, null);
-            } else if (filters.containsKey("top") || filters.containsKey("from") || filters.containsKey("to")) {
-                Time from = null;
-                Time to = null;
-                if (filters.containsKey("from")) {
-                    from = Time.parse((String) filters.get("from"));
+        try {
+            List<Bookmark> bookmarks = null;
+            if (filters == null) {
+                filters = new HashMap();
+            }
+            if (bookmarkDao.bookmarkExists(bookmarkName)) {
+                if (filters.containsKey("data") && filters.get("data").equals("*")) {
+                    bookmarks = bookmarkDao.getTransactions(bookmarkName, transactionContext, null, null, null);
+                } else if (filters.containsKey("top") || filters.containsKey("from") || filters.containsKey("to")) {
+                    Time from = null;
+                    Time to = null;
+                    if (filters.containsKey("from")) {
+                        from = Time.parse((String) filters.get("from"));
+                    }
+                    if (filters.containsKey("to")) {
+                        to = Time.parse((String) filters.get("to"));
+                    }
+                    bookmarks = bookmarkDao.getTransactions(bookmarkName, transactionContext, from, to, Integer.parseInt((String) filters.get("top")));
+                } else { //return last inserted bookmark
+                    bookmarks = bookmarkDao.getTransactions(bookmarkName, transactionContext, null, null, 1);
                 }
-                if (filters.containsKey("to")) {
-                    to = Time.parse((String) filters.get("to"));
+                return bookmarks;
+            }
+        } catch (Exception e) {}
+        throw new IllegalArgumentException("Invalid Request");
+    }
+
+    public Boolean saveTransactions(String bookmarkName, String transactionContext, List<Bookmark> bookmarks) {
+        try {
+            if (bookmarkDao.bookmarkExists(bookmarkName)) {
+                if (bookmarks != null && bookmarkDao.saveTransactions(bookmarkName, transactionContext, bookmarks)) {
+                    return true;
+                } else {
+                    return false;
                 }
-                bookmarks = bookmarkDao.getProgress(bookmarkName, from, to, Integer.parseInt((String) filters.get("top")));
-            } else { //return last inserted bookmark
-                bookmarks = bookmarkDao.getProgress(bookmarkName, null, null, 1);
             }
-
-        } else {
-            throw new IllegalArgumentException("Bookmark doesn't exists");
-        }
-        return bookmarks;
+        } catch (Exception e) {}
+        throw new IllegalArgumentException("Invalid Request");
     }
 
-    public Boolean saveBookmark(String bookmarkName, List<Bookmark> bookmarks) {
-        if (bookmarkDao.bookmarkExists(bookmarkName)) {
-            if (bookmarks != null && bookmarkDao.saveProgress(bookmarkName, bookmarks)) {
-                return true;
-            } else {
-                return false;
+    public Boolean updateTransactions(String bookmarkName, String transactionContext, List<Bookmark> bookmarks) {
+        try {
+            if (bookmarkDao.bookmarkExists(bookmarkName)) {
+                if (bookmarks != null && bookmarkDao.updateTransactions(bookmarkName, transactionContext, bookmarks)) {
+                    return true;
+                } else {
+                    return false;
+                }
             }
-        } else {
-            throw new IllegalArgumentException("Bookmark doesn't exists");
-        }
+        } catch (Exception e) {}
+        throw new IllegalArgumentException("Invalid Request");
     }
 
-    public Boolean updateBookmark(String bookmarkName, List<Bookmark> bookmarks) {
-        if (bookmarkDao.bookmarkExists(bookmarkName)) {
-            if (bookmarks != null && bookmarkDao.updateProgress(bookmarkName, bookmarks)) {
-                return true;
-            } else {
-                return false;
-            }
-        } else {
-            throw new IllegalArgumentException("Bookmark doesn't exists");
-        }
-    }
-
-    public List<Bookmark> getFailedBookmarks(String bookmarkName, Map<String, Object> filter)
+    public Map<String, Object> getStateValues(String bookmarkName, Map<String, Object> filters)
     {
-        List<Bookmark> bookmarks = null;
-        if (bookmarkDao.bookmarkExists(bookmarkName)) {
-            if (filter.containsKey("data") && filter.get("data").equals("*")) {
-                bookmarks = bookmarkDao.getFailed(bookmarkName, null, null, null);
-            } else if (filter.containsKey("top") || filter.containsKey("from") || filter.containsKey("to")) {
-                Time from = null;
-                Time to = null;
-                if (filter.containsKey("from")) {
-                    from = Time.parse((String) filter.get("from"));
-                }
-                if (filter.containsKey("to")) {
-                    to = Time.parse((String) filter.get("to"));
-                }
-                bookmarks = bookmarkDao.getFailed(bookmarkName, from, to, (Integer) filter.get("top"));
-            } else {
-                bookmarks = bookmarkDao.getFailed(bookmarkName, null, null, 1);
+        try {
+            if (filters == null) {
+                filters = new HashMap();
             }
-        } else {
-            throw new IllegalArgumentException("Bookmark doesn't exists");
-        }
-        return bookmarks;
-    }
-
-    public Boolean saveFailedBookmarks(String bookmarkName, List<Bookmark> bookmarks) {
-        if (bookmarkDao.bookmarkExists(bookmarkName)) {
-            if (bookmarks != null && bookmarkDao.saveFailed(bookmarkName, bookmarks)) {
-                return true;
-            } else {
-                return false;
+            if (bookmarkDao.bookmarkExists(bookmarkName)) {
+                return bookmarkDao.getStateValues(bookmarkName, (String) filters.get("data"));
             }
-        } else {
-            throw new IllegalArgumentException("Bookmark doesn't exists");
-        }
+        } catch (Exception e) {}
+        throw new IllegalArgumentException("Invalid Request");
     }
 
-    public Boolean updateFailedBookmarks(String bookmarkName, List<Bookmark> bookmarks) {
-        if (bookmarkDao.bookmarkExists(bookmarkName)) {
-            if (bookmarks != null && bookmarkDao.updateFailed(bookmarkName, bookmarks)) {
-                return true;
-            } else {
-                return false;
+    public Boolean updateStateValues(String bookmarkName, Map<String, Object> stateValues) {
+        try {
+            if (bookmarkDao.bookmarkExists(bookmarkName)) {
+                return bookmarkDao.updateStateValues(bookmarkName, stateValues);
             }
-        } else {
-            throw new IllegalArgumentException("Bookmark doesn't exists");
-        }
+        } catch (Exception e) {}
+        throw new IllegalArgumentException("Invalid Request");
     }
 
-    public Integer getBookmarkState(String bookmarkName)
-    {
-        if (bookmarkDao.bookmarkExists(bookmarkName)) {
-            return bookmarkDao.getState(bookmarkName);
-        }
-        throw new IllegalArgumentException("Bookmark doesn't exists");
-    }
-
-    public Boolean updateBookmarkState(String bookmarkName, Integer state) {
-        if (bookmarkDao.bookmarkExists(bookmarkName)) {
-            return bookmarkDao.updateState(bookmarkName, state);
-        } else {
-            throw new IllegalArgumentException("Bookmark doesn't exists");
-        }
+    public Boolean saveStateValues(String bookmarkName, Map<String, Object> stateValues) {
+        try {
+            if (bookmarkDao.bookmarkExists(bookmarkName)) {
+                return bookmarkDao.saveStateValues(bookmarkName, stateValues);
+            }
+        } catch (Exception e) {}
+        throw new IllegalArgumentException("Invalid Request");
     }
 
     public void enableCleanup(){
@@ -197,9 +161,22 @@ public class BookmarksService {
                         cutofftime = cutofftimeDefault;
                     }
                 } else cutofftime = cutofftimeDefault;
-                bookmarkDao.cleanProgress(bookmarkName, cutofftime);
-                bookmarkDao.cleanFailed(bookmarkName, cutofftime);
+                bookmarkDao.cleanTxnRecords(bookmarkName, null, cutofftime);
             }
         }
+    }
+
+    public BookmarkInstanceService createInstantService(String bookmarkName) {
+        BookmarkInstanceService bookmarkInstanceService = new BookmarkInstanceService();
+        bookmarkInstanceService.setBookmarkName(bookmarkName);
+        bookmarkInstanceService.setBookmarksService(this);
+        return bookmarkInstanceService;
+    }
+
+    public BookmarkTransactionInstanceService createTransactionInstanceService(String bookmarkName, String context) {
+        BookmarkTransactionInstanceService bookmarkTransactionInstanceService = new BookmarkTransactionInstanceService();
+        bookmarkTransactionInstanceService.setBookmarkInstanceService(createInstantService(bookmarkName));
+        bookmarkTransactionInstanceService.setContextName(context);
+        return bookmarkTransactionInstanceService;
     }
 }

@@ -16,14 +16,14 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class BookmarkSqliteDao implements BookmarkDao{
 
     String path = "./bookmarks/";
     String stateTable = "states";
-    String configTable = "config";
-    String failedTable = "failed";
-    String progressTable = "progress";
+    String metaTable = "meta";
+    String defaultContextName = "default";
     Integer batch_size = 200;
     Integer timeoutMillis = 60000;
 
@@ -43,6 +43,276 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
     }
 
+    public boolean createTxnContext(String bookmarkName, String context) {
+        String sql = "CREATE TABLE " + context + " ( " +
+                "id INTEGER PRIMARY KEY," +
+                "timestamp bigint NOT NULL, " +
+                "metrics json NOT NULL " +
+                ");" +
+                "CREATE INDEX timestamp_idx ON " + context + "(timestamp)";
+        try {
+            return executeStatement(bookmarkName, sql);
+        } catch (SQLException throwables) {
+            return false;
+        }
+    }
+
+    public boolean createStateTable(String bookmarkName) {
+        String sql = "CREATE TABLE " + stateTable + " ( " +
+                "context string PRIMARY KEY NOT NULL, " +
+                "values json NOT NULL" +
+                ")";
+        try {
+            return executeStatement(bookmarkName, sql);
+        } catch (SQLException throwables) {
+            return false;
+        }
+    }
+
+    public boolean createMetaTable(String bookmarkName) {
+        String sql = "CREATE TABLE " + metaTable + " ( " +
+                "name string PRIMARY KEY NOT NULL, " +
+                "info json NOT NULL" +
+                ")";
+        try {
+            return executeStatement(bookmarkName, sql);
+        } catch (SQLException throwables) {
+            return false;
+        }
+    }
+
+    public Boolean updateTransactions(String bookmarkName, String context, List<Bookmark> bookmarks){
+        Statement stmt = null;
+        Connection conn = null;
+        try {
+            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
+            conn = DriverManager.getConnection(url);
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+            return null;
+        }
+        try {
+            stmt = conn.createStatement();
+            stmt.setQueryTimeout(timeoutMillis);
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+            return null;
+        }
+        try{
+            conn.setAutoCommit(false);
+            String sql = "INSERT INTO " + context + " (timestamp,metrics) " + " VALUES (?,?)";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            int count = 0;
+            for(Bookmark bookmark : bookmarks){
+                String stats_str = "";
+                if (bookmark.getMetrics() != null) {
+                    ObjectMapper mapper = new ObjectMapper();
+                    try {
+                        stats_str = mapper.writeValueAsString(bookmark.getMetrics());
+                    } catch (JsonProcessingException e) {
+                        e.printStackTrace();
+                        return false;
+                    }
+                }
+
+                pstmt.setLong(1,bookmark.getTimestamp().getInstant().toEpochMilli());
+                pstmt.setString(2,stats_str);
+                pstmt.addBatch();
+                count++;
+                if(count % batch_size == 0){
+                    pstmt.executeBatch();
+                    conn.commit();
+                }
+            }
+            pstmt.executeBatch();
+            conn.commit();
+            pstmt.close();
+            stmt.close();
+            conn.close();
+            return true;
+        } catch (SQLException e) {
+            try {
+                conn.rollback();
+            } catch (SQLException internal_e) {
+                internal_e.printStackTrace();
+            }
+            return false;
+        }
+    }
+
+    @Override
+    public Boolean bookmarkExists(String bookmarkName) {
+        return null;
+    }
+
+    @Override
+    public List bookmarkList() {
+        return null;
+    }
+
+    @Override
+    public HashMap<String, HashMap> getBookmarkConfig(String bookmarkName) {
+        return null;
+    }
+
+    @Override
+    public Boolean createBookmark(String bookmarkName, HashMap config) {
+        return null;
+    }
+
+    @Override
+    public Boolean cleanTxnRecords(String bookmarkName, String context, Time cutofftime) {
+        return null;
+    }
+
+    @Override
+    public Boolean maintenance() {
+        return null;
+    }
+
+    @Override
+    public Double size() {
+        return null;
+    }
+
+    @Override
+    public Double size(String bookmarkName) {
+        return null;
+    }
+
+    @Override
+    public Integer recordCount(String bookmarkName) {
+        return null;
+    }
+
+    @Override
+    public Boolean deleteBookmark(String bookmarkName) {
+        return null;
+    }
+
+    public Boolean saveTransactions(String bookmarkName, String context, List<Bookmark> bookmarks){
+        truncateTable(bookmarkName, context);
+        return updateTransactions(bookmarkName, context, bookmarks);
+    }
+
+    public List<Bookmark> getTransactions(String bookmarkName, String context,
+                                          Time starttime, Time endtime, Integer top) {
+        String sql = "SELECT * FROM " + context;
+        if (starttime != null || endtime != null || top != null) {
+            sql += " WHERE 1=1 ";
+            if (starttime != null) {
+                sql += " AND timestamp>='" + starttime.mysqlString() + "'";
+            }
+            if (endtime != null) {
+                sql += " AND timestamp<='" + endtime.mysqlString() + "'";
+            }
+            if (top != null) {
+                if (top > 0) {
+                    sql += " ORDER BY timestamp DESC LIMIT " + top;
+                } else if (top < 0) {
+                    sql += " ORDER BY timestamp ASC LIMIT " + -1*top;
+                }
+            }
+        }
+        List<Bookmark> bookmarks = null;
+        Statement stmt = null;
+        Connection conn = null;
+        try {
+            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
+            conn = DriverManager.getConnection(url);
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+        try {
+            stmt = conn.createStatement();
+            stmt.setQueryTimeout(timeoutMillis);
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+        try {
+            ResultSet rs = stmt.executeQuery(sql);
+            bookmarks = new ArrayList<>();
+            while (rs.next()) {
+                Bookmark bookmark = new Bookmark();
+                bookmark.setTimestamp(Time.parse(rs.getLong("timestamp")));
+                String metric_str = rs.getString("metrics");
+                if (metric_str != null && metric_str.contains("{")) {
+                    bookmark.setMetrics(new ObjectMapper().readValue(metric_str, HashMap.class));
+                }
+                bookmarks.add(bookmark);
+            }
+            stmt.close();
+            conn.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } catch (JsonMappingException e) {
+            e.printStackTrace();
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+        return bookmarks;
+    }
+
+    @Override
+    public Map<String, Object> getStateValues(String bookmarkName, String stateEntry) {
+        return null;
+    }
+
+    @Override
+    public Boolean updateStateValues(String bookmarkName, Map<String, Object> stateValues) {
+        return null;
+    }
+
+    @Override
+    public Boolean saveStateValues(String bookmarkName, Map<String, Object> stateValues) {
+        return null;
+    }
+
+    @Override
+    public Boolean saveBookmarkConfig(String bookmarkName, HashMap<String, Object> newConfig) {
+        return null;
+    }
+
+    @Override
+    public Boolean updateBookmarkConfig(String bookmarkName, HashMap<String, Object> updateConfig) {
+        return null;
+    }
+
+    private Boolean truncateTable(String bookmarkName, String tableName) {
+        String sql = "DELETE FROM " + tableName;
+        try {
+            return executeStatement(bookmarkName, sql);
+        } catch (SQLException throwables) {
+            return false;
+        }
+    }
+
+    private Boolean executeStatement(String bookmarkName, String sql) throws SQLException {
+        Statement stmt = null;
+        Connection conn = null;
+        try {
+            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
+            conn = DriverManager.getConnection(url);
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+            return null;
+        }
+        try {
+            stmt = conn.createStatement();
+            stmt.setQueryTimeout(timeoutMillis);
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+            return null;
+        }
+
+        stmt.executeUpdate(sql);
+        stmt.close();
+        conn.close();
+        return true;
+    }
+
+
+    /*
     public Boolean bookmarkExists(String bookmarkName) {
         return Files.exists(Paths.get(path + bookmarkName + ".db"));
     }
@@ -57,8 +327,6 @@ public class BookmarkSqliteDao implements BookmarkDao{
             }
         }
         return names;
-        //String sql = "SELECT name FROM " + configTable;
-        //return getList(sql);
     }
 
     public HashMap<String, HashMap> getBookmarkConfig(String bookmarkName) {
@@ -82,17 +350,8 @@ public class BookmarkSqliteDao implements BookmarkDao{
         return false;
     }
 
-    public Boolean cleanProgress(String bookmarkName, Time cutofftime) {
-        String sql = "DELETE FROM " + progressTable + " WHERE timestamp<='" + cutofftime.mysqlString() +"'";
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
-        }
-    }
-
-    public Boolean cleanFailed(String bookmarkName, Time cutofftime) {
-        String sql = "DELETE FROM " + failedTable + " WHERE timestamp<='" + cutofftime.mysqlString() +"'";
+    public Boolean cleanTxnRecords(String bookmarkName, String context, Time cutofftime) {
+        String sql = "DELETE FROM " + context + " WHERE timestamp<='" + cutofftime.mysqlString() +"'";
         try {
             return executeStatement(bookmarkName, sql);
         } catch (SQLException throwables) {
@@ -133,8 +392,13 @@ public class BookmarkSqliteDao implements BookmarkDao{
         return Double.valueOf(1.0) * page_size * page_count;
     }
 
+    @Override
     public Integer recordCount(String bookmarkName) {
-        String sql = "SELECT COUNT(*) FROM " + progressTable;
+        return null;
+    }
+
+    public Integer getTxnCount(String bookmarkName, String context) {
+        String sql = "SELECT COUNT(*) FROM " + context;
         return (Integer) getElement(bookmarkName, sql);
     }
 
@@ -147,15 +411,15 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
     }
 
-    public Boolean saveFailed(String bookmarkName, List<Bookmark> bookmarks) {
-        if (truncateTable(bookmarkName, failedTable)) {
-            updateFailed(bookmarkName, bookmarks);
+    public Boolean saveTransactions(String bookmarkName, String context, List<Bookmark> bookmarks) {
+        if (truncateTable(bookmarkName, context)) {
+            updateTransactions(bookmarkName, context, bookmarks);
             return true;
         }
         return null;
     }
 
-    public Boolean updateFailed(String bookmarkName, List<Bookmark> bookmarks) {
+    public Boolean updateTransactions(String bookmarkName, String context, List<Bookmark> bookmarks) {
         Statement stmt = null;
         Connection conn = null;
         try {
@@ -174,7 +438,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
         try{
             conn.setAutoCommit(false);
-            String sql = "INSERT INTO " + failedTable + " (timestamp,metrics) " + " VALUES (?,?)";
+            String sql = "INSERT INTO " + context + " (timestamp,metrics) " + " VALUES (?,?)";
             PreparedStatement pstmt = conn.prepareStatement(sql);
             int count = 0;
             for(Bookmark bookmark : bookmarks){
@@ -214,8 +478,8 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
     }
 
-    public List<Bookmark> getFailed(String bookmarkName, Time starttime, Time endtime, Integer top) {
-        String sql = "SELECT * FROM " + failedTable;
+    public List<Bookmark> getTransactions(String bookmarkName, String transactionContext,Time starttime, Time endtime, Integer top) {
+        String sql = "SELECT * FROM " + transactionContext;
         if (starttime != null || endtime != null || top != null) {
             sql += " WHERE 1=1 ";
             if (starttime != null) {
@@ -232,19 +496,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
                 }
             }
         }
-        return (getBookmarks(bookmarkName, sql));
-    }
-
-
-    public Boolean saveProgress(String bookmarkName, List<Bookmark> bookmarks) {
-        if (truncateTable(bookmarkName, progressTable)) {
-            updateProgress(bookmarkName, bookmarks);
-            return true;
-        }
-        return null;
-    }
-
-    public Boolean updateProgress(String bookmarkName, List<Bookmark> bookmarks) {
+        List<Bookmark> bookmarks = null;
         Statement stmt = null;
         Connection conn = null;
         try {
@@ -252,87 +504,92 @@ public class BookmarkSqliteDao implements BookmarkDao{
             conn = DriverManager.getConnection(url);
         } catch (SQLException throwables) {
             throwables.printStackTrace();
-            return null;
         }
         try {
             stmt = conn.createStatement();
             stmt.setQueryTimeout(timeoutMillis);
         } catch (SQLException throwables) {
             throwables.printStackTrace();
-            return null;
         }
-        try{
-            conn.setAutoCommit(false);
-            String sql = "INSERT INTO " + progressTable + " (timestamp,metrics) " + " VALUES (?,?)";
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            int count = 0;
-            for(Bookmark bookmark : bookmarks){
-                String stats_str = "";
-                if (bookmark.getMetrics() != null) {
-                    ObjectMapper mapper = new ObjectMapper();
-                    try {
-                        stats_str = mapper.writeValueAsString(bookmark.getMetrics());
-                    } catch (JsonProcessingException e) {
-                        e.printStackTrace();
-                        return false;
-                    }
+        try {
+            ResultSet rs = stmt.executeQuery(sql);
+            bookmarks = new ArrayList<>();
+            while (rs.next()) {
+                Bookmark bookmark = new Bookmark();
+                bookmark.setTimestamp(Time.parse(rs.getString("timestamp"),
+                        "uuuu-MM-dd HH:mm:ss.SSS"));
+                String metric_str = rs.getString("metrics");
+                if (metric_str != null && metric_str.contains("{")) {
+                    bookmark.setMetrics(new ObjectMapper().readValue(metric_str, HashMap.class));
                 }
-
-                pstmt.setString(1,bookmark.getTimestamp().mysqlString());
-                pstmt.setString(2,stats_str);
-                pstmt.addBatch();
-                count++;
-                if(count % batch_size == 0){
-                    pstmt.executeBatch();
-                    conn.commit();
-                }
+                bookmarks.add(bookmark);
             }
-            pstmt.executeBatch();
-            conn.commit();
-            pstmt.close();
             stmt.close();
             conn.close();
-            return true;
         } catch (SQLException e) {
-            try {
-                conn.rollback();
-            } catch (SQLException internal_e) {
-                internal_e.printStackTrace();
+            e.printStackTrace();
+        } catch (JsonMappingException e) {
+            e.printStackTrace();
+        } catch (JsonProcessingException e) {
+            e.printStackTrace();
+        }
+        return bookmarks;
+    }
+
+    public Map<String, Object> getStateValues(String bookmarkName, String stateEntry) {
+        String sql;
+        if (stateEntry != null) {
+            sql = "SELECT key,value FROM " + stateTable + " WHERE key='" + stateEntry;
+        } else {
+            sql = "SELECT key,value FROM " + stateTable;
+        }
+        Map<String, Object> stateValue = new HashMap<>();
+        Statement stmt = null;
+        Connection conn = null;
+        try {
+            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
+            conn = DriverManager.getConnection(url);
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+        try {
+            stmt = conn.createStatement();
+            stmt.setQueryTimeout(timeoutMillis);
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+        try {
+            ResultSet rs = stmt.executeQuery(sql);
+            while (rs.next()) {
+                stateValue.put(rs.getString("key"),rs.getObject("value"));
             }
+            stmt.close();
+            conn.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return stateValue;
+    }
+
+    public Boolean updateStateValues(String bookmarkName, Map<String, Object> stateValues) {
+        String sql = "";
+        for (String key: stateValues.keySet()) {
+            sql += "UPSERT " + stateTable + " SET key='" + key +
+                    "',value='" + stateValues.get(key) + "' WHERE key='" + key + "';";
+        }
+        try {
+            return executeStatement(bookmarkName, sql);
+        } catch (SQLException throwables) {
             return false;
         }
     }
 
-    public List<Bookmark> getProgress(String bookmarkName, Time starttime, Time endtime, Integer top) {
-        String sql = "SELECT * FROM " + progressTable;
-        if (starttime != null || endtime != null || top != null) {
-            sql += " WHERE 1=1 ";
-            if (starttime != null) {
-                sql += " AND timestamp>='" + starttime.mysqlString() + "'";
-            }
-            if (endtime != null) {
-                sql += " AND timestamp<='" + endtime.mysqlString() + "'";
-            }
-            if (top != null) {
-                if (top > 0) {
-                    sql += " ORDER BY timestamp DESC LIMIT " + top;
-                } else if (top < 0) {
-                    sql += " ORDER BY timestamp ASC LIMIT " + -1*top;
-                }
-            }
+    public Boolean saveStateValues(String bookmarkName, Map<String, Object> stateValues) {
+        String sql = "";
+        for (String key: stateValues.keySet()) {
+            sql += "UPSERT " + stateTable + " SET key='" + key +
+                    "',value='" + stateValues.get(key) + "' WHERE key='" + key + "';";
         }
-        return (getBookmarks(bookmarkName, sql));
-    }
-
-    public Integer getState(String bookmarkName) {
-        String sql = "SELECT state FROM " + stateTable + " WHERE name='" + bookmarkName + "'";
-        return (Integer) getElement(bookmarkName, sql);
-    }
-
-    public Boolean updateState(String bookmarkName, Integer state) {
-
-        String sql = "UPDATE " + stateTable + " SET timestamp='" + Time.now().mysqlString() +
-                "',state='" + state + "' WHERE name='" + bookmarkName + "'";
         try {
             return executeStatement(bookmarkName, sql);
         } catch (SQLException throwables) {
@@ -404,59 +661,6 @@ public class BookmarkSqliteDao implements BookmarkDao{
         } catch (SQLException throwables) {
             return false;
         }
-    }
-
-    /*private Boolean tableExists(String tableName) {
-        String sql = "SELECT count(*) tableCount FROM sqlite_master WHERE type='table' AND name='" + tableName + "'";
-        Integer tableCount = (Integer) getElement(sql);
-        if (tableCount == null) {
-            return null;
-        } else if (tableCount > 0) {
-            return true;
-        } else {
-            return false;
-        }
-    }*/
-
-    private List<Bookmark> getBookmarks(String bookmarkName, String sql) {
-        List<Bookmark> bookmarks = null;
-        Statement stmt = null;
-        Connection conn = null;
-        try {
-            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
-            conn = DriverManager.getConnection(url);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
-            stmt = conn.createStatement();
-            stmt.setQueryTimeout(timeoutMillis);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
-            ResultSet rs = stmt.executeQuery(sql);
-            bookmarks = new ArrayList<>();
-            while (rs.next()) {
-                Bookmark bookmark = new Bookmark();
-                bookmark.setTimestamp(Time.parse(rs.getString("timestamp"),
-                        "uuuu-MM-dd HH:mm:ss.SSS"));
-                String metric_str = rs.getString("metrics");
-                if (metric_str != null && metric_str.contains("{")) {
-                    bookmark.setMetrics(new ObjectMapper().readValue(metric_str, HashMap.class));
-                }
-                bookmarks.add(bookmark);
-            }
-            stmt.close();
-            conn.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (JsonMappingException e) {
-            e.printStackTrace();
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-        }
-        return bookmarks;
     }
 
     private Object getElement(String bookmarkName, String sql) {
@@ -567,8 +771,8 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
     }
 
-    private Boolean createProgressTable(String bookmarkName) {
-        String sql = "CREATE TABLE " + progressTable + " ( " +
+    private Boolean createTxnTable(String bookmarkName, String context) {
+        String sql = "CREATE TABLE " + context + " ( " +
                 "timestamp TEXT PRIMARY KEY NOT NULL, " +
                 "metrics TEXT NOT NULL " +
                 ")";
@@ -648,5 +852,5 @@ public class BookmarkSqliteDao implements BookmarkDao{
             return true;
         }
         return false;
-    }
+    }*/
 }

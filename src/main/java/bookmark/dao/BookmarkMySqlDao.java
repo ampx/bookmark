@@ -5,6 +5,7 @@ import util.time.model.Time;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class BookmarkMySqlDao implements BookmarkDao{
 
@@ -29,12 +30,7 @@ public class BookmarkMySqlDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean cleanProgress(String bookmarkName, Time cutofftime) {
-        return null;
-    }
-
-    @Override
-    public Boolean cleanFailed(String bookmarkName, Time cutofftime) {
+    public Boolean cleanTxnRecords(String bookmarkName, String context, Time cutofftime) {
         return null;
     }
 
@@ -64,42 +60,32 @@ public class BookmarkMySqlDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean saveFailed(String bookmarkName, List<Bookmark> bookmarks) {
+    public Boolean saveTransactions(String bookmarkName, String transactionContext, List<Bookmark> bookmarks) {
         return null;
     }
 
     @Override
-    public Boolean updateFailed(String bookmarkName, List<Bookmark> bookmarks) {
+    public Boolean updateTransactions(String bookmarkName, String transactionContext, List<Bookmark> bookmarks) {
         return null;
     }
 
     @Override
-    public List<Bookmark> getFailed(String bookmarkName, Time starttime, Time endtime, Integer top) {
+    public List<Bookmark> getTransactions(String bookmarkName, String transactionContext, Time starttime, Time endtime, Integer top) {
         return null;
     }
 
     @Override
-    public Boolean saveProgress(String bookmarkName, List<Bookmark> bookmarks) {
+    public Map<String, Object> getStateValues(String bookmarkName, String stateEntry) {
         return null;
     }
 
     @Override
-    public Boolean updateProgress(String bookmarkName, List<Bookmark> bookmarks) {
+    public Boolean updateStateValues(String bookmarkName, Map<String, Object> stateValues) {
         return null;
     }
 
     @Override
-    public List<Bookmark> getProgress(String bookmarkName, Time starttime, Time endtime, Integer top) {
-        return null;
-    }
-
-    @Override
-    public Integer getState(String bookmarkName) {
-        return null;
-    }
-
-    @Override
-    public Boolean updateState(String bookmarkName, Integer state) {
+    public Boolean saveStateValues(String bookmarkName, Map<String, Object> stateValues) {
         return null;
     }
 

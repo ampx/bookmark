@@ -137,13 +137,6 @@ curl -d "$BOOKMARK_DATA" -H "Content-Type: application/json" -X PUT http://$URL/
 
 ### Notes
 
-
-
-
-
-
-
-
 ------------------------------
 
 ## Bookmark Exists
@@ -282,27 +275,18 @@ curl -d "$BOOKMARK_DATA" -H "Content-Type: application/json" -X POST http://$URL
 
 ### Notes
 
-
-
-
-
-
-
-
-
-
 ------------------------------
 
-## Query Bookmark Progress
+## Query Transaction Bookmark
 
 Get stored progress for a specific bookmark
 
-**URL** : `/bookmarks/{bookmark_name}/bookmark`
+**URL** : `/bookmarks/{bookmark_name}/txn/{transaction_context}`
 **Method** : `GET`
 
 ### URL Parameters
 
-**Default** - Will return last bookmark
+**Default** - Will return last transaction inserted
 
 **Optional:**
 * ```?data=*``` - return all bookmarks
@@ -335,20 +319,21 @@ Get progress for the last 24 hours
 ```shell
 URL=localhost:8080
 BOOKMARK_NAME=bookmark0
+TRANSACTION_CONTEXT=transaction0
 URL_PARAM="?from=`date -d '1 day ago' '+%FT%T.000Z'`"
 
-curl http://$URL/bookmarks/$BOOKMARK_NAME/bookmark$URL_PARAM
+curl http://$URL/bookmarks/$BOOKMARK_NAME/txn/$TRANSACTION_CONTEXT$URL_PARAM
 ```
 
 ### Notes
 
 ------------------------------
 
-## Update Bookmark Progress
+## Update Transaction Bookmark
 
 Append a bookmark with new progress entries
 
-**URL** : `/bookmarks/{bookmark_name}/bookmark`
+**URL** : `/bookmarks/{bookmark_name}/txn/{transaction_context}`
 **Method** : `PUT`
 
 ### URL Parameters
@@ -386,20 +371,21 @@ Any issues with the request or bookmark service internal errors with result in:
 ```shell
 URL=localhost:8080
 BOOKMARK_NAME=bookmark0
+TRANSACTION_CONTEXT=transaction0
 BOOKMARK_DATA="[{\"timestamp\":{\"time\":\"`date '+%FT%T.000Z'`\"},\"metrics\":null}]"
 
-curl -d "$BOOKMARK_DATA" -H "Content-Type: application/json" -X PUT http://$URL/bookmarks/$BOOKMARK_NAME/bookmark
+curl -d "$BOOKMARK_DATA" -H "Content-Type: application/json" -X PUT http://$URL/bookmarks/$BOOKMARK_NAME/txn/$TRANSACTION_CONTEXT
 ```
 
 ### Notes
 
 ------------------------------
 
-## Save Bookmark Progress
+## Save Transaction Bookmark
 
 Overwrite all existing bookmark's progress records with new ones
 
-**URL** : `/bookmarks/{bookmark_name}/bookmark`
+**URL** : `/bookmarks/{bookmark_name}/txn/{transaction_context}`
 **Method** : `POST`
 
 ### URL Parameters
@@ -437,9 +423,10 @@ Any issues with the request or bookmark service internal errors with result in:
 ```shell
 URL=localhost:8080
 BOOKMARK_NAME=bookmark0
+TRANSACTION_CONTEXT=transaction0
 BOOKMARK_DATA="[{\"timestamp\":{\"time\":\"`date '+%FT%T.000Z'`\"},\"metrics\":null}]"
 
-curl -d "$BOOKMARK_DATA" -H "Content-Type: application/json" -X POST http://$URL/bookmarks/$BOOKMARK_NAME/bookmark
+curl -d "$BOOKMARK_DATA" -H "Content-Type: application/json" -X POST http://$URL/bookmarks/$BOOKMARK_NAME/txn/$TRANSACTION_CONTEXT
 ```
 
 ### Notes
@@ -450,12 +437,15 @@ curl -d "$BOOKMARK_DATA" -H "Content-Type: application/json" -X POST http://$URL
 
 Get state of the bookmark 
 
-**URL** : `/bookmarks/{bookmark_name}/state`
+**URL** : `/bookmarks/{bookmark_name}/state/`
 **Method** : `GET`
 
 ### URL Parameters
 
-None
+**Default** - Will return all key value pairs
+
+**Optional:**
+* ```?data=state_name``` - name of individual state value
 
 ### Data Parameters
 
@@ -464,7 +454,7 @@ N/A
 ### Success Response
 
 ```json
-{"state":0}
+{"state_value0":"value0", "state_value1":"value1",...}
 ```
 
 ### Error Response
@@ -488,10 +478,10 @@ curl http://$URL/bookmarks/$BOOKMARK_NAME/state
 
 ## Update Bookmark State
 
-Update bookmark's state
+Updates provided state value
 
 **URL** : `/bookmarks/{bookmark_name}/state`
-**Method** : `PUT` or `POST`
+**Method** : `PUT`
 
 ### URL Parameters
 
@@ -500,7 +490,7 @@ None
 ### Data Parameters
 
 ```json
-{"state":0}
+{"state_value0":"value0"}
 ```
 
 ### Success Response
@@ -526,125 +516,20 @@ Any issues with the request or bookmark service internal errors will result in:
 ```shell
 URL=localhost:8080
 BOOKMARK_NAME=bookmark0
-BOOKMARK_DATA='{"state":1}'
+BOOKMARK_DATA='{"state_value0":"value0"}'
 
 curl -d "$BOOKMARK_DATA" -H "Content-Type: application/json" -X PUT http://$URL/bookmarks/$BOOKMARK_NAME/state
 ```
 
 ### Notes
 
-Available states:
-* 0 - Unlocked
-* 1 - Locked
-* 2 - Error
-
 ------------------------------
 
-## Query Bookmark Failed
+## Save Bookmark State
 
-Get stored metrics for failed runs
+Overwrite all existing state values with new ones
 
-**URL** : `/bookmarks/{bookmark_name}/failed`
-**Method** : `GET`
-
-### URL Parameters
-
-**Default** - Will return last record
-
-**Optional:**
-* ```?data=*``` - return all records
-* ```?top=10``` - latest 10
-* ```?top=-10``` - oldest 10
-* ```from=2018-12-10T13:45:00Z```
-* ```?to=2018-12-11T13:45:00Z```
-
-### Data Parameters
-N/A
-
-### Success Response
-
-```json
-[
-  {"timestamp":{"time":"2018-12-10T13:45:00Z"},"metrics":{"metric0":"metric0Value",...}}}
-]
-```
-
-### Error Response
-
-If bookmark doesn't exist
-
-**Code:** `400`
-
-### Sample**
-
-```shell
-URL=localhost:8080
-BOOKMARK_NAME=bookmark0
-URL_PARAM="?from=`date -d '1 day ago' '+%FT%T.000Z'`"
-
-curl http://$URL/bookmarks/$BOOKMARK_NAME/failed$URL_PARAM
-```
-
-### Notes
-
-------------------------------
-
-## Update Bookmark Failed
-
-Append a bookmark with new failed entries
-
-**URL** : `/bookmarks/{bookmark_name}/failed`
-**Method** : `PUT`
-
-### URL Parameters
-
-None
-
-### Data Parameters
-
-```json
-[
-  {"timestamp":{"time":"2018-12-10T13:45:00Z"},"metrics":{"metric0":"metric0Value",...}}}
-]
-```
-
-### Success Response
-
-```json
-{
-  "success": true
-}
-```
-
-### Error Response
-
-Any issues with the request or bookmark service internal errors with result in:
-
-```json
-{
-  "success": false
-}
-```
-
-### Sample
-
-```shell
-URL=localhost:8080
-BOOKMARK_NAME=bookmark0
-BOOKMARK_DATA="[{\"timestamp\":{\"time\":\"`date '+%FT%T.000Z'`\"},\"metrics\":null}]"
-
-curl -d "$BOOKMARK_DATA" -H "Content-Type: application/json" -X PUT http://$URL/bookmarks/$BOOKMARK_NAME/failed
-```
-
-### Notes
-
-------------------------------
-
-## Save Bookmark Failed
-
-Overwrite all existing bookmark's failed records with new ones
-
-**URL** : `/bookmarks/{bookmark_name}/bookmark`
+**URL** : `/bookmarks/{bookmark_name}/state`
 **Method** : `POST`
 
 ### URL Parameters
@@ -654,9 +539,7 @@ None
 ### Data Parameters
 
 ```json
-[
-  {"timestamp":{"time":"2018-12-10T13:45:00Z"},"metrics":{"metric0":"metric0Value",...}}}
-]
+{"state_value0":"value0"}
 ```
 
 ### Success Response
@@ -669,7 +552,7 @@ None
 
 ### Error Response
 
-Any issues with the request or bookmark service internal errors with result in:
+Any issues with the request or bookmark service internal errors will result in:
 
 ```json
 {
@@ -682,10 +565,11 @@ Any issues with the request or bookmark service internal errors with result in:
 ```shell
 URL=localhost:8080
 BOOKMARK_NAME=bookmark0
-BOOKMARK_DATA="[{\"timestamp\":{\"time\":\"`date '+%FT%T.000Z'`\"},\"metrics\":null}]"
+BOOKMARK_DATA='{"state_value0":"value0"}'
 
-curl -d "$BOOKMARK_DATA" -H "Content-Type: application/json" -X PUT http://$URL/bookmarks/$BOOKMARK_NAME/failed
+curl -d "$BOOKMARK_DATA" -H "Content-Type: application/json" -X POST http://$URL/bookmarks/$BOOKMARK_NAME/state
 ```
 
 ### Notes
 
+------------------------------
