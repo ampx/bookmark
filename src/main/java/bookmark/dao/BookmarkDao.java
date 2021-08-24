@@ -1,6 +1,6 @@
 package bookmark.dao;
 
-import bookmark.model.Bookmark;
+import bookmark.model.*;
 import util.time.model.Time;
 
 import java.util.HashMap;
@@ -12,11 +12,27 @@ public interface BookmarkDao {
 
     public List bookmarkList();
 
-    public HashMap<String, HashMap> getBookmarkConfig(String bookmarkName);
+    public Boolean createBookmark(String bookmarkName, Metadata metadata);
 
-    public Boolean createBookmark(String bookmarkName, HashMap config);
+    public Boolean saveBookmarkTxn(String bookmarkName, BookmarkTxns txns);
 
-    public Boolean cleanTxnRecords(String bookmarkName, String context, Time cutofftime);
+    public Boolean updateBookmarkTxn(String bookmarkName, BookmarkTxns txns);
+
+    public BookmarkTxns getBookmarkTxn(String bookmarkName, TxnQuery query);
+
+    public BookmarkValues getBookmarkValues(String bookmarkName, ValueQuery query);
+
+    public Boolean updateBookmarkValues(String bookmarkName, BookmarkValues values);
+
+    public Boolean saveBookmarkValues(String bookmarkName, BookmarkValues values);
+
+    public Boolean cleanTxnRecords(String bookmarkName, String context, Time cutoffTime);
+
+    public Metadata getMetadata(String bookmarkName, List<String> options);
+
+    public Boolean updateMetadata(String bookmarkName, Metadata metadata);
+
+    public Boolean saveMetadata(String bookmarkName, Metadata metadata);
 
     public Boolean maintenance();
 
@@ -24,24 +40,7 @@ public interface BookmarkDao {
 
     public Double size(String bookmarkName) ;
 
-    public Integer recordCount(String bookmarkName);
+    public Integer recordCount(String bookmarkName, String context);
 
     public Boolean deleteBookmark(String bookmarkName);
-
-    public Boolean saveTransactions(String bookmarkName, String transactionContext, List<Bookmark> bookmarks);
-
-    public Boolean updateTransactions(String bookmarkName, String transactionContext, List<Bookmark> bookmarks);
-
-    public List<Bookmark> getTransactions(String bookmarkName, String transactionContext,
-                                          Time starttime, Time endtime, Integer top);
-
-    public Map<String, Object> getStateValues(String bookmarkName, String stateEntry);
-
-    public Boolean updateStateValues(String bookmarkName, Map<String, Object> stateValues);
-
-    public Boolean saveStateValues(String bookmarkName, Map<String, Object> stateValues);
-
-    public Boolean saveBookmarkConfig(String bookmarkName, HashMap<String, Object> newConfig);
-
-    public Boolean updateBookmarkConfig(String bookmarkName, HashMap<String, Object> updateConfig);
 }

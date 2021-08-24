@@ -1,6 +1,7 @@
 package bookmark.dao;
 
 import bookmark.model.Bookmark;
+import bookmark.model.Metadata;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -50,7 +51,7 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean createBookmark(String bookmarkName, HashMap config) {
+    public Boolean createBookmark(String bookmarkName, Metadata metadata) {
         String bookmarkUrl = url + "/" + bookmarkName;
         HashMap postBody = new HashMap();
         postBody.put("name", bookmarkName);
@@ -84,7 +85,7 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public Integer recordCount(String bookmarkName) {
+    public Integer recordCount(String bookmarkName, String context) {
         return null;
     }
 
@@ -136,14 +137,14 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public Map<String, Object> getStateValues(String bookmarkName, String stateEntry) {
+    public Map<String, Object> getStateValues(String bookmarkName, String context, List<String>values) {
         String bookmarkUrl = url + "/" + bookmarkName + "/state" ;
 
         return restTemplate.getForObject(bookmarkUrl, HashMap.class);
     }
 
     @Override
-    public Boolean updateStateValues(String bookmarkName, Map<String, Object> stateValues) {
+    public Boolean updateStateValues(String bookmarkName, String context, Map<String, Object> stateValues) {
         String bookmarkUrl = url + "/" + bookmarkName + "/state" ;
         HttpEntity<Map> request = new HttpEntity<>(stateValues);
         ResponseEntity<Map> result = restTemplate.exchange(bookmarkUrl, HttpMethod.PUT, request, Map.class);
@@ -154,7 +155,7 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean saveStateValues(String bookmarkName, Map<String, Object> stateValues) {
+    public Boolean saveStateValues(String bookmarkName, String context, Map<String, Object> stateValues) {
         String bookmarkUrl = url + "/" + bookmarkName + "/state" ;
         HttpEntity<Map> request = new HttpEntity<>(stateValues);
         ResponseEntity<Map> result = restTemplate.exchange(bookmarkUrl, HttpMethod.POST, request, Map.class);
@@ -165,7 +166,7 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean saveBookmarkConfig(String bookmarkName, HashMap<String, Object> newConfig) {
+    public Boolean saveBookmarkConfig(String bookmarkName, Map<String, Object> newConfig) {
         String bookmarkUrl = url + "/" + bookmarkName;
         HashMap config = new HashMap();
         config.put("config", newConfig);
@@ -178,7 +179,7 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean updateBookmarkConfig(String bookmarkName, HashMap<String, Object> updateConfig) {
+    public Boolean updateBookmarkConfig(String bookmarkName, Map<String, Object> updateConfig) {
         String bookmarkUrl = url + "/" + bookmarkName;
         HashMap config = new HashMap();
         config.put("config", updateConfig);

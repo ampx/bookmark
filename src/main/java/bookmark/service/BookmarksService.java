@@ -1,7 +1,7 @@
 package bookmark.service;
 
 import bookmark.dao.BookmarkDao;
-import bookmark.model.Bookmark;
+import bookmark.model.*;
 import util.time.model.Time;
 
 import java.util.*;
@@ -11,6 +11,7 @@ public class BookmarksService {
     Timer timer;
     Integer cleanupPeriodMins = 30;
     Integer defaultRetentionDays = 30;
+    Integer maintenancePeriodDays = 7;
     BookmarkDao bookmarkDao;
 
     public void setCleanupPeriodMins(Integer cleanupPeriodMins) {
@@ -30,8 +31,8 @@ public class BookmarksService {
         return bookmarkDao.bookmarkList();
     }
 
-    public Boolean createBookmark(String name, HashMap<String, Object> config) {
-        return bookmarkDao.createBookmark(name, config);
+    public Boolean createBookmark(String bookmarkName, Metadata metadata) {
+        return bookmarkDao.createBookmark(bookmarkName, metadata);
     }
 
     public Boolean bookmarkExists(String bookmarkName)
@@ -39,47 +40,27 @@ public class BookmarksService {
         return bookmarkDao.bookmarkExists(bookmarkName);
     }
 
-    public Boolean updateBookmarkConfig(String bookmarkName, HashMap<String, Object> config) {
-        return bookmarkDao.updateBookmarkConfig(bookmarkName, config);
+    public Boolean updateBookmarkMetadata(String bookmarkName, Metadata metadata) {
+        return bookmarkDao.updateMetadata(bookmarkName, metadata);
     }
 
-    public Boolean saveBookmarkConfig(String bookmarkName, HashMap<String, Object> config) {
-        return bookmarkDao.saveBookmarkConfig(bookmarkName, config);
+    public Boolean saveBookmarkMetadata(String bookmarkName, Metadata metadata) {
+        return bookmarkDao.saveMetadata(bookmarkName, metadata);
     }
 
-    public List<Bookmark> getTransactions(String bookmarkName, String transactionContext, Map<String, Object> filters)
+    public Metadata getBookmarkMetadata(String bookmarkName, List<String> query) {
+        return bookmarkDao.getMetadata(bookmarkName, query);
+    }
+
+    public BookmarkTxns getBookmarkTxn(String bookmarkName, TxnQuery query)
     {
-        try {
-            List<Bookmark> bookmarks = null;
-            if (filters == null) {
-                filters = new HashMap();
-            }
-            if (bookmarkDao.bookmarkExists(bookmarkName)) {
-                if (filters.containsKey("data") && filters.get("data").equals("*")) {
-                    bookmarks = bookmarkDao.getTransactions(bookmarkName, transactionContext, null, null, null);
-                } else if (filters.containsKey("top") || filters.containsKey("from") || filters.containsKey("to")) {
-                    Time from = null;
-                    Time to = null;
-                    if (filters.containsKey("from")) {
-                        from = Time.parse((String) filters.get("from"));
-                    }
-                    if (filters.containsKey("to")) {
-                        to = Time.parse((String) filters.get("to"));
-                    }
-                    bookmarks = bookmarkDao.getTransactions(bookmarkName, transactionContext, from, to, Integer.parseInt((String) filters.get("top")));
-                } else { //return last inserted bookmark
-                    bookmarks = bookmarkDao.getTransactions(bookmarkName, transactionContext, null, null, 1);
-                }
-                return bookmarks;
-            }
-        } catch (Exception e) {}
-        throw new IllegalArgumentException("Invalid Request");
+        return bookmarkDao.getBookmarkTxn(bookmarkName, query);
     }
 
-    public Boolean saveTransactions(String bookmarkName, String transactionContext, List<Bookmark> bookmarks) {
+    public Boolean saveBookmarkTxn(String bookmarkName, BookmarkTxns txns) {
         try {
             if (bookmarkDao.bookmarkExists(bookmarkName)) {
-                if (bookmarks != null && bookmarkDao.saveTransactions(bookmarkName, transactionContext, bookmarks)) {
+                if (txns != null && bookmarkDao.saveBookmarkTxn(bookmarkName, txns)) {
                     return true;
                 } else {
                     return false;
@@ -89,10 +70,10 @@ public class BookmarksService {
         throw new IllegalArgumentException("Invalid Request");
     }
 
-    public Boolean updateTransactions(String bookmarkName, String transactionContext, List<Bookmark> bookmarks) {
+    public Boolean updateBookmarkTxn(String bookmarkName, BookmarkTxns txns) {
         try {
             if (bookmarkDao.bookmarkExists(bookmarkName)) {
-                if (bookmarks != null && bookmarkDao.updateTransactions(bookmarkName, transactionContext, bookmarks)) {
+                if (txns != null && bookmarkDao.updateBookmarkTxn(bookmarkName, txns)) {
                     return true;
                 } else {
                     return false;
@@ -102,32 +83,29 @@ public class BookmarksService {
         throw new IllegalArgumentException("Invalid Request");
     }
 
-    public Map<String, Object> getStateValues(String bookmarkName, Map<String, Object> filters)
+    public BookmarkValues getBookmarkValues(String bookmarkName, ValueQuery query)
     {
         try {
-            if (filters == null) {
-                filters = new HashMap();
-            }
             if (bookmarkDao.bookmarkExists(bookmarkName)) {
-                return bookmarkDao.getStateValues(bookmarkName, (String) filters.get("data"));
+                return bookmarkDao.getBookmarkValues(bookmarkName, query);
             }
         } catch (Exception e) {}
         throw new IllegalArgumentException("Invalid Request");
     }
 
-    public Boolean updateStateValues(String bookmarkName, Map<String, Object> stateValues) {
+    public Boolean updateBookmarkValues(String bookmarkName, BookmarkValues values) {
         try {
             if (bookmarkDao.bookmarkExists(bookmarkName)) {
-                return bookmarkDao.updateStateValues(bookmarkName, stateValues);
+                return bookmarkDao.updateBookmarkValues(bookmarkName, values);
             }
         } catch (Exception e) {}
         throw new IllegalArgumentException("Invalid Request");
     }
 
-    public Boolean saveStateValues(String bookmarkName, Map<String, Object> stateValues) {
+    public Boolean saveBookmarkValues(String bookmarkName, BookmarkValues values) {
         try {
             if (bookmarkDao.bookmarkExists(bookmarkName)) {
-                return bookmarkDao.saveStateValues(bookmarkName, stateValues);
+                return bookmarkDao.saveBookmarkValues(bookmarkName, values);
             }
         } catch (Exception e) {}
         throw new IllegalArgumentException("Invalid Request");
@@ -149,14 +127,15 @@ public class BookmarksService {
 
     private class BookmarkCleanup extends TimerTask {
         public void run(){
-            HashMap<String, HashMap> configs = bookmarkDao.getBookmarkConfig(null);
             Time cutofftimeDefault = (new Time()).addDays(-1 * defaultRetentionDays);
             Time cutofftime;
-            for (String bookmarkName : configs.keySet()) {
-                HashMap config = configs.get(bookmarkName);
-                if (config != null && config.containsKey("retentionDays")) {
+            List<String> bookmarkList = bookmarkDao.bookmarkList();
+            List<String> configQuery = new ArrayList(1){{add("config");}};
+            for (String bookmarkName : bookmarkList) {
+                Metadata metadata = bookmarkDao.getMetadata(bookmarkName, configQuery);
+                if (metadata != null && metadata.getConfig() != null && metadata.getConfig().containsKey("retentionDays")) {
                     try {
-                        cutofftime = (new Time()).addDays(-1L * Long.valueOf((Integer) config.get("retentionDays")));
+                        cutofftime = (new Time()).addDays(-1L * Long.valueOf((Integer) metadata.getConfig().get("retentionDays")));
                     } catch (Exception e) {
                         cutofftime = cutofftimeDefault;
                     }

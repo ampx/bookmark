@@ -8,6 +8,7 @@ import javax.naming.ConfigurationException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,6 +29,7 @@ class BookmarkSqliteDaoTest {
     @Test
     void updateTransactions() throws ConfigurationException {
         BookmarkSqliteDao dao = createDao();
+        dao.deleteBookmark(bookmarkName);
         dao.createBookmark(bookmarkName, null);
         dao.createTxnContext(bookmarkName, context);
         Bookmark bookmark = new Bookmark();
@@ -51,6 +53,22 @@ class BookmarkSqliteDaoTest {
     }
 
     @Test
-    void getTransactions() {
+    void updateStateValues() throws ConfigurationException {
+        BookmarkSqliteDao dao = createDao();
+        dao.deleteBookmark(bookmarkName);
+        dao.createBookmark(bookmarkName, null);
+        dao.createStateTable(bookmarkName);
+        dao.createTxnContext(bookmarkName, context);
+
+        Map<String, Object> metrics = new HashMap(){{
+            put("value0", "metric0");
+            put("value1", 1);
+            put("value2", true);
+        }};
+        dao.updateBookmarkValues(bookmarkName, context, metrics);
+        Map<String, Object> retrievedMetrics = dao.getBookmarkValues(bookmarkName, context, null);
+        assertEquals(metrics, retrievedMetrics);
     }
+
+
 }
