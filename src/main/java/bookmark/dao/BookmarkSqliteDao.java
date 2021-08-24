@@ -543,7 +543,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
     }
 
     @Override
-    public List<String> bookmarkList() {
+    public List<String> getBookmarkList() {
         File[] files = new File(path).listFiles();
         List<String> names = new ArrayList();
         for (File file:files) {
@@ -592,7 +592,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
         String sql = "VACUUM;";
         Boolean success = true;
         try {
-            List<String> bookmarks = bookmarkList();
+            List<String> bookmarks = getBookmarkList();
             for (String bookmarkName: bookmarks) {
                 if (executeStatement(bookmarkName, sql) != true) {
                     return false;
@@ -606,7 +606,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
 
     public Double size() {
         Double size = 0.0;
-        List<String> bookmarks = bookmarkList();
+        List<String> bookmarks = getBookmarkList();
         for (String bookmarkName: bookmarks) {
             size += size(bookmarkName);
         }

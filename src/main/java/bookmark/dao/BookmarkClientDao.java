@@ -35,7 +35,7 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public List bookmarkList() {
+    public List getBookmarkList() {
         String bookmarkUrl = url + "?data=bookmarks" ;
         String[] response = restTemplate.getForObject(bookmarkUrl, String[].class);
         if (response != null && response.length>0) {

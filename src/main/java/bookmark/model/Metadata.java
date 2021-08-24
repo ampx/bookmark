@@ -1,5 +1,6 @@
 package bookmark.model;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -24,7 +25,7 @@ public class Metadata {
         return schema;
     }
 
-    public void setSchema(Map<String, Object> schema) {
+    public void setSchema(HashMap<String, String> schema) {
         this.schema = schema;
     }
 

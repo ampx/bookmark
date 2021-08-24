@@ -10,9 +10,19 @@ import java.util.Map;
 public interface BookmarkDao {
     public Boolean bookmarkExists(String bookmarkName);
 
-    public List bookmarkList();
+    public Boolean txnContextExists(String bookmarkName, String context);
+
+    public Boolean valueContextExists(String bookmarkName, String context);
+
+    public List<String> getBookmarkList();
+
+    public List<String> getContextList(String bookmarkName);
 
     public Boolean createBookmark(String bookmarkName, Metadata metadata);
+
+    public Boolean createTxnContext(String bookmarkName, String context);
+
+    public Boolean createValueContext(String bookmarkName, String context);
 
     public Boolean saveBookmarkTxn(String bookmarkName, BookmarkTxns txns);
 
