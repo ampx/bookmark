@@ -95,8 +95,9 @@ public class BookmarksService {
     {
         try {
             return bookmarkDao.getBookmarkValues(bookmarkName, query);
-        } catch (Exception e) {}
-        throw new IllegalArgumentException("Invalid Request");
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid Request");
+        }
     }
 
     public Boolean updateBookmarkValues(String bookmarkName, BookmarkValues values) {

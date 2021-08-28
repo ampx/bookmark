@@ -45,12 +45,11 @@ public class BookmarkSqliteDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean createBookmark(String bookmarkName, Metadata metadata) {
-        if (!validBookmarkName(bookmarkName) || bookmarkExists(bookmarkName)) {
+    public Boolean createBookmark(String bookmarkName, Metadata metadata) throws Exception{
+        //make sure the bookmark name is valid & bookmark does not already exists
+        if (!validateBookmarkName(bookmarkName) || bookmarkExists(bookmarkName)) {
             return false;
         }
-        //delete if there are any residue files from corrupted bookmark
-        deleteBookmark(bookmarkName);
         //reject bookmark if there is invalid context name in metadata
         if (metadata.getContextList() != null) {
             for (String context: metadata.getContextList()) {
@@ -59,6 +58,8 @@ public class BookmarkSqliteDao implements BookmarkDao{
                 }
             }
         }
+        //delete if there are any residue files from corrupted bookmark
+        deleteBookmark(bookmarkName);
         if (metadata == null) {
             metadata = new Metadata();
         }
@@ -80,8 +81,9 @@ public class BookmarkSqliteDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean createContext(String bookmarkName, String context) {
+    public Boolean createContext(String bookmarkName, String context) throws Exception{
         Boolean success = true;
+        //register context name in the metadata if it is not already
         Metadata contextMeta = getMetadata(bookmarkName, new ArrayList(1){{add("contextList");}});
         if (!contextMeta.getContextList().contains(context)) {
             Metadata metadata = new Metadata();
@@ -90,11 +92,13 @@ public class BookmarkSqliteDao implements BookmarkDao{
             metadata.setContextList(contextList);
             success &= updateMetadata(bookmarkName, metadata);
         }
+        //create context transaction table if it does not exist already
         String checkTxnTableSql = "SELECT name FROM sqlite_master WHERE type='table' AND name='" + context + "';";
         Integer txnTableCount = (Integer) getElement(bookmarkName, checkTxnTableSql);
         if (txnTableCount < 1) {
             success &= createTxnTable(bookmarkName, context);
         }
+        //create context value field if it does not exist already
         String checkValueTableSql = "SELECT count(*) FROM " + valuesTable + " WHERE name='" + context + "';";
         Integer valueEntryCount = (Integer) getElement(bookmarkName, checkValueTableSql);
         if (valueEntryCount < 1) {
@@ -104,7 +108,8 @@ public class BookmarkSqliteDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean bookmarkExists(String bookmarkName) {
+    public Boolean bookmarkExists(String bookmarkName) throws Exception{
+        //bookmark exists if it has a database created and the lock is not in NotReady state
         if (Files.exists(Paths.get(path + bookmarkName + ".db"))) {
             Metadata metadata = getMetadata(bookmarkName, null);
             if (metadata.getLock() >= 0) {
@@ -115,7 +120,8 @@ public class BookmarkSqliteDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean contextExists(String bookmarkName, String context) {
+    public Boolean contextExists(String bookmarkName, String context) throws Exception{
+        //context exists if context is registered in metadata & value and txn context entries is setup
         Metadata contextMeta = getMetadata(bookmarkName, new ArrayList(1){{add("contextList");}});
         String checkTxnTableSql = "SELECT name FROM sqlite_master WHERE type='table' AND name='" + context + "';";
         Integer txnTableCount = (Integer) getElement(bookmarkName, checkTxnTableSql);
@@ -139,13 +145,13 @@ public class BookmarkSqliteDao implements BookmarkDao{
     }
 
     @Override
-    public List<String> getContextList(String bookmarkName) {
+    public List<String> getContextList(String bookmarkName) throws Exception{
         Metadata contextMeta = getMetadata(bookmarkName, new ArrayList(1){{add("contextList");}});
         return contextMeta.getContextList();
     }
 
     @Override
-    public Boolean updateBookmarkTxn(String bookmarkName, BookmarkTxns txns){
+    public Boolean updateBookmarkTxn(String bookmarkName, BookmarkTxns txns) throws Exception {
         Statement stmt = null;
         Connection conn = null;
         try {
@@ -193,24 +199,23 @@ public class BookmarkSqliteDao implements BookmarkDao{
             stmt.close();
             conn.close();
             return true;
-        } catch (SQLException e) {
-            try {
-                conn.rollback();
-            } catch (SQLException internal_e) {
-                internal_e.printStackTrace();
-            }
-            return false;
+        } catch (Exception e) {
+            try {conn.rollback();} catch (Exception ex) {}
+            try {stmt.close();} catch (Exception ex) {}
+            try {conn.close();} catch (Exception ex) {}
+            throw e;
         }
+
     }
 
     @Override
-    public Boolean saveBookmarkTxn(String bookmarkName, BookmarkTxns txns){
+    public Boolean saveBookmarkTxn(String bookmarkName, BookmarkTxns txns) throws Exception {
         truncateTable(bookmarkName, txns.getContext());
         return updateBookmarkTxn(bookmarkName, txns);
     }
 
     @Override
-    public BookmarkTxns getBookmarkTxn(String bookmarkName, TxnQuery txnQuery) {
+    public BookmarkTxns getBookmarkTxn(String bookmarkName, TxnQuery txnQuery) throws Exception{
         String sql = "SELECT * FROM " + txnQuery.getContext();
         if (txnQuery != null) {
             sql += " WHERE 1=1 ";
@@ -258,18 +263,17 @@ public class BookmarkSqliteDao implements BookmarkDao{
             }
             stmt.close();
             conn.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (JsonMappingException e) {
-            e.printStackTrace();
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
+            return txns;
+        } catch (Exception e) {
+            try {stmt.close();} catch (Exception ex){};
+            try {conn.close();} catch (Exception ex){};
+            throw e;
         }
-        return txns;
+
     }
 
     @Override
-    public BookmarkValues getBookmarkValues(String bookmarkName, ValueQuery query) {
+    public BookmarkValues getBookmarkValues(String bookmarkName, ValueQuery query)  throws Exception{
         String sql = null;
         if (query != null) {
             String valuesExtStr = "";
@@ -307,18 +311,16 @@ public class BookmarkSqliteDao implements BookmarkDao{
             }
             stmt.close();
             conn.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (JsonMappingException e) {
-            e.printStackTrace();
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
+            return values;
+        } catch (Exception e) {
+            try {stmt.close();} catch (Exception ex) {}
+            try {conn.close();} catch (Exception ex) {}
+            throw e;
         }
-        return values;
     }
 
     @Override
-    public Boolean updateBookmarkValues(String bookmarkName, BookmarkValues values) throws ConfigurationException {
+    public Boolean updateBookmarkValues(String bookmarkName, BookmarkValues values) throws Exception {
         Statement stmt = null;
         Connection conn = createConnection(bookmarkName);
         try {
@@ -345,20 +347,19 @@ public class BookmarkSqliteDao implements BookmarkDao{
             if (updateCount < 1) {
                 throw new ConfigurationException("didn't update values - check if context is setup");
             }
+            stmt.close();
+            conn.close();
             return true;
-        } catch (SQLException e) {
-            try {
-                conn.rollback();
-                conn.close();
-            } catch (SQLException throwables) {
-                throwables.printStackTrace();
-            }
-            throw new ConfigurationException("didn't update values - check if context is setup");
+        } catch (Exception e) {
+            try {conn.rollback();} catch (Exception ex) {}
+            try {stmt.close();} catch (Exception ex) {}
+            try {conn.close();} catch (Exception ex) {}
+            throw e;
         }
     }
 
     @Override
-    public Boolean saveBookmarkValues(String bookmarkName, BookmarkValues values) throws ConfigurationException {
+    public Boolean saveBookmarkValues(String bookmarkName, BookmarkValues values) throws Exception {
         Statement stmt = null;
         Connection conn = createConnection(bookmarkName);
         try {
@@ -386,19 +387,16 @@ public class BookmarkSqliteDao implements BookmarkDao{
                 throw new ConfigurationException("didn't update values - check if context is setup");
             }
             return true;
-        } catch (SQLException e) {
-            try {
-                conn.rollback();
-                conn.close();
-            } catch (SQLException throwables) {
-                throwables.printStackTrace();
-            }
-            throw new ConfigurationException("didn't update values - check if context is setup");
+        } catch (Exception e) {
+            try {conn.rollback();} catch (Exception ex) {}
+            try {stmt.close();} catch (Exception ex) {}
+            try {conn.close();} catch (Exception ex) {}
+            throw e;
         }
     }
 
     @Override
-    public Metadata getMetadata(String bookmarkName, List<String> options) {
+    public Metadata getMetadata(String bookmarkName, List<String> options)  throws Exception{
         String sql = "SELECT ";
         if (options != null && options.size() > 0) {
             sql += String.join(",", options);
@@ -441,136 +439,68 @@ public class BookmarkSqliteDao implements BookmarkDao{
             }
             stmt.close();
             conn.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (JsonMappingException e) {
-            e.printStackTrace();
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-        }
-        return metadata;
-    }
-
-    @Override
-    public Boolean updateMetadata(String bookmarkName, Metadata metadata) {
-        try {
-            String sql = "";
-            if (metadata.getConfig() != null) {
-                String configStr = mapper.writeValueAsString(metadata.getConfig());
-                sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('config'," + configStr + ")" +
-                        " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, ?)";
-            }
-            if (metadata.getLock() != null) {
-                sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('lock'," + metadata.getLock() + ")" +
-                        " ON CONFLICT(name) DO UPDATE SET data=" + metadata.getLock();
-            }
-            if (metadata.getSchema() != null) {
-                String schemasStr = mapper.writeValueAsString(metadata.getSchema());
-                sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('schemas'," + schemasStr + ")" +
-                        " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, ?)";
-            }
-            if (metadata.getContextList() != null) {
-                String contextListStr = mapper.writeValueAsString(metadata.getContextList());
-                sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('contextList'," + metadata.getContextList() + ")" +
-                        " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, [" + contextListStr + "])";
-            }
-            return executeStatement(bookmarkName, sql);
+            return metadata;
         } catch (Exception e) {
-            return false;
+            try {stmt.close();} catch (Exception ex) {}
+            try {conn.close();} catch (Exception ex) {}
+            throw e;
         }
     }
 
     @Override
-    public Boolean saveMetadata(String bookmarkName, Metadata metadata) {
-        try {
-            String sql = "";
-            if (metadata.getConfig() != null) {
-                String configStr = mapper.writeValueAsString(metadata.getConfig());
-                sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('config',"+ configStr +")";
-            }
-            if (metadata.getLock() != null) {
-                sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('lock',"+ metadata.getLock() +")";
-            }
-            if (metadata.getSchema() != null) {
-                String schemasStr = mapper.writeValueAsString(metadata.getSchema());
-                sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('schemas',"+ schemasStr +")";
-            }
-            if (metadata.getContextList() != null) {
-                String contextListStr = mapper.writeValueAsString(metadata.getContextList());
-                sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('contextList',"+ contextListStr +")";
-            }
-            return executeStatement(bookmarkName, sql);
-        } catch (Exception e) {
-            return false;
+    public Boolean updateMetadata(String bookmarkName, Metadata metadata) throws Exception {
+        String sql = "";
+        if (metadata.getConfig() != null) {
+            String configStr = mapper.writeValueAsString(metadata.getConfig());
+            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('config'," + configStr + ")" +
+                    " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, ?)";
         }
-    }
-
-    private Map<String, Object> getJsonByKey(String bookmarkName, String tableName, String key, List<String> values) {
-        String sql = null;
-        if (values != null) {
-            String valuesExtStr = "";
-            for (String value: values) {
-                valuesExtStr += ", '$.'" + value;
-            }
-            sql = "SELECT json_extract(stateValues " + valuesExtStr + ") as data";
-        } else {
-            sql = "SELECT data";
+        if (metadata.getLock() != null) {
+            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('lock'," + metadata.getLock() + ")" +
+                    " ON CONFLICT(name) DO UPDATE SET data=" + metadata.getLock();
         }
-        sql += " FROM " + tableName + " WHERE name='" + key + "';";
-        Map<String, Object> valuesMap = null;
-        Statement stmt = null;
-        Connection conn = null;
-        try {
-            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
-            conn = DriverManager.getConnection(url);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
+        if (metadata.getSchema() != null) {
+            String schemasStr = mapper.writeValueAsString(metadata.getSchema());
+            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('schemas'," + schemasStr + ")" +
+                    " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, ?)";
         }
-        try {
-            stmt = conn.createStatement();
-            stmt.setQueryTimeout(timeoutMillis);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
+        if (metadata.getContextList() != null) {
+            String contextListStr = mapper.writeValueAsString(metadata.getContextList());
+            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('contextList'," + metadata.getContextList() + ")" +
+                    " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, [" + contextListStr + "])";
         }
-        try {
-            ResultSet rs = stmt.executeQuery(sql);
-            while (rs.next()) {
-                String metric_str = rs.getString("data");
-                if (metric_str != null && metric_str.startsWith("{")) {
-                    valuesMap = new ObjectMapper().readValue(metric_str, HashMap.class);
-                } else if (metric_str != null) {
-                    valuesMap = new HashMap<>(1);
-                    if (metric_str.startsWith("[")) {
-                        valuesMap.put("data", new ObjectMapper().readValue(metric_str, ArrayList.class));
-                    } else {
-                        valuesMap.put("data", metric_str);
-                    }
-                }
-            }
-            stmt.close();
-            conn.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (JsonMappingException e) {
-            e.printStackTrace();
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-        }
-        return valuesMap;
+        return executeStatement(bookmarkName, sql);
     }
 
     @Override
-    public Boolean cleanTxnRecords(String bookmarkName, String context, Time cutofftime) {
+    public Boolean saveMetadata(String bookmarkName, Metadata metadata) throws Exception{
+        String sql = "";
+        if (metadata.getConfig() != null) {
+            String configStr = mapper.writeValueAsString(metadata.getConfig());
+            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('config',"+ configStr +")";
+        }
+        if (metadata.getLock() != null) {
+            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('lock',"+ metadata.getLock() +")";
+        }
+        if (metadata.getSchema() != null) {
+            String schemasStr = mapper.writeValueAsString(metadata.getSchema());
+            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('schemas',"+ schemasStr +")";
+        }
+        if (metadata.getContextList() != null) {
+            String contextListStr = mapper.writeValueAsString(metadata.getContextList());
+            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('contextList',"+ contextListStr +")";
+        }
+        return executeStatement(bookmarkName, sql);
+    }
+
+    @Override
+    public Boolean cleanTxnRecords(String bookmarkName, String context, Time cutofftime)  throws Exception{
         String sql = "DELETE FROM " + context + " WHERE timestamp<='" + cutofftime.getInstant().toEpochMilli() +"'";
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
-        }
+        return executeStatement(bookmarkName, sql);
     }
 
     @Override
-    public Boolean maintenance() {
+    public Boolean maintenance() throws Exception{
         String sql = "VACUUM;";
         Boolean success = true;
         try {
@@ -586,7 +516,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
     }
 
-    public Double size() {
+    public Double size() throws Exception{
         Double size = 0.0;
         List<String> bookmarks = getBookmarkList();
         for (String bookmarkName: bookmarks) {
@@ -595,7 +525,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
         return size;
     }
 
-    public Double size(String bookmarkName) {
+    public Double size(String bookmarkName) throws Exception{
         String sql1 = "PRAGMA PAGE_SIZE;";
         Integer page_size = (Integer) getElement(bookmarkName, sql1);
         String sql2 = "PRAGMA PAGE_COUNT;";
@@ -604,13 +534,13 @@ public class BookmarkSqliteDao implements BookmarkDao{
     }
 
     @Override
-    public Integer recordCount(String bookmarkName, String context) {
+    public Integer recordCount(String bookmarkName, String context) throws Exception{
         String sql = "SELECT count(*) from " + context;
         return (Integer) getElement(bookmarkName, sql);
     }
 
     @Override
-    public Boolean deleteBookmark(String bookmarkName) {
+    public Boolean deleteBookmark(String bookmarkName){
         try {
             Files.delete(Paths.get(this.path + "/" + bookmarkName + ".db"));
             return true;
@@ -619,17 +549,21 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
     }
 
-    @Override
-    public Boolean validateBookmarkName(String bookmarkName) {
-        return null;
+    private Boolean validateBookmarkName(String bookmarkName) {
+        if (bookmarkName != null && !bookmarkName.matches(".*\\s.*") && bookmarkName.length()>0)    {
+            return true;
+        }
+        return false;
     }
 
-    @Override
-    public Boolean validateContextName(String contextName) {
-        return null;
+    private Boolean validateContextName(String contextName) {
+        if (contextName != null && !contextName.matches(".*\\s.*") && contextName.length()>0)    {
+            return true;
+        }
+        return false;
     }
 
-    private Boolean truncateTable(String bookmarkName, String tableName) {
+    private Boolean truncateTable(String bookmarkName, String tableName) throws Exception{
         String sql = "DELETE FROM " + tableName;
         try {
             return executeStatement(bookmarkName, sql);
@@ -638,7 +572,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
     }
 
-    private Boolean executeStatement(String bookmarkName, String sql) throws SQLException {
+    private Boolean executeStatement(String bookmarkName, String sql) throws Exception {
         Statement stmt = null;
         Connection conn = null;
         try {
@@ -662,12 +596,12 @@ public class BookmarkSqliteDao implements BookmarkDao{
         return true;
     }
 
-    private Object enableWriteAhead(String bookmarkName) {
+    private Object enableWriteAhead(String bookmarkName) throws Exception{
         String sql = "PRAGMA journal_mode=WAL;";
         return getElement(bookmarkName, sql);
     }
 
-    private Object getElement(String bookmarkName, String sql) {
+    private Object getElement(String bookmarkName, String sql) throws Exception {
         Object restultObject = null;
         Statement stmt = null;
         Connection conn = null;
@@ -690,17 +624,10 @@ public class BookmarkSqliteDao implements BookmarkDao{
             }
             stmt.close();
             conn.close();
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
+        } catch (Exception e) {
+            throw e;
         }
         return restultObject;
-    }
-
-    private Boolean validBookmarkName(String bookmarkName){
-        if (bookmarkName != null && !bookmarkName.matches(".*\\s.*") && bookmarkName.length()>0)    {
-            return true;
-        }
-        return false;
     }
 
     private Connection createConnection(String databaseName) {
@@ -725,7 +652,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
                 "CREATE INDEX timestamp_idx ON " + context + "(timestamp)";
         try {
             return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
+        } catch (Exception throwables) {
             return false;
         }
     }
@@ -734,7 +661,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
         String sql = "INSERT INTO " + valuesTable + "(name,data) values('" + context +"','" + "{}" + "')";
         try {
             return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
+        } catch (Exception throwables) {
             return false;
         }
     }
@@ -746,7 +673,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
                 ");";
         try {
             return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
+        } catch (Exception throwables) {
             return false;
         }
     }
@@ -758,550 +685,8 @@ public class BookmarkSqliteDao implements BookmarkDao{
                 ")";
         try {
             return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
+        } catch (Exception throwables) {
             return false;
         }
     }
-
-    /*
-    public Boolean bookmarkExists(String bookmarkName) {
-        return Files.exists(Paths.get(path + bookmarkName + ".db"));
-    }
-
-    public List bookmarkList() {
-        File[] files = new File(path).listFiles();
-        List names = new ArrayList();
-        for (File file:files) {
-            if (file.getName().endsWith(".db")) {
-                String[] split = file.getName().split("\\.");
-                names.add(split[0]);
-            }
-        }
-        return names;
-    }
-
-    public HashMap<String, HashMap> getBookmarkConfig(String bookmarkName) {
-        String sql = "SELECT * FROM " + configTable;
-        if (bookmarkName != null) {
-            sql += " WHERE name='" + bookmarkName + "'";
-        }
-        return getConfigMap(bookmarkName, sql);
-    }
-
-    public Boolean createBookmark(String bookmarkName, HashMap config) {
-        if (validBookmarkName(bookmarkName) && !bookmarkExists(bookmarkName) && createProgressTable(bookmarkName)
-                && createStateTable(bookmarkName)
-                && addBookmarkState(bookmarkName)
-                && createFailedTable(bookmarkName)
-                && createConfigTable(bookmarkName)
-                && addBookmarkConfig(bookmarkName, config)) {
-            enableWriteAhead(bookmarkName);
-            return true;
-        }
-        return false;
-    }
-
-    public Boolean cleanTxnRecords(String bookmarkName, String context, Time cutofftime) {
-        String sql = "DELETE FROM " + context + " WHERE timestamp<='" + cutofftime.mysqlString() +"'";
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
-        }
-    }
-
-    public Boolean maintenance() {
-        String sql = "VACUUM;";
-        Boolean success = true;
-        try {
-            List<String> bookmarks = bookmarkList();
-            for (String bookmarkName: bookmarks) {
-                if (executeStatement(bookmarkName, sql) != true) {
-                    return false;
-                }
-            }
-            return true;
-        } catch (SQLException throwables) {
-            return false;
-        }
-    }
-
-    public Double size() {
-        Double size = 0.0;
-        List<String> bookmarks = bookmarkList();
-        for (String bookmarkName: bookmarks) {
-            size += size(bookmarkName);
-        }
-        return size;
-    }
-
-    public Double size(String bookmarkName) {
-        String sql1 = "PRAGMA PAGE_SIZE;";
-        Integer page_size = (Integer) getElement(bookmarkName, sql1);
-        String sql2 = "PRAGMA PAGE_COUNT;";
-        Integer page_count = (Integer) getElement(bookmarkName, sql2);
-        return Double.valueOf(1.0) * page_size * page_count;
-    }
-
-    @Override
-    public Integer recordCount(String bookmarkName) {
-        return null;
-    }
-
-    public Integer getTxnCount(String bookmarkName, String context) {
-        String sql = "SELECT COUNT(*) FROM " + context;
-        return (Integer) getElement(bookmarkName, sql);
-    }
-
-    public Boolean deleteBookmark(String bookmarkName) {
-        try {
-            Files.delete(Paths.get(this.path + "/" + bookmarkName + ".db"));
-            return true;
-        } catch (IOException e) {
-            return false;
-        }
-    }
-
-    public Boolean saveTransactions(String bookmarkName, String context, List<Bookmark> bookmarks) {
-        if (truncateTable(bookmarkName, context)) {
-            updateTransactions(bookmarkName, context, bookmarks);
-            return true;
-        }
-        return null;
-    }
-
-    public Boolean updateTransactions(String bookmarkName, String context, List<Bookmark> bookmarks) {
-        Statement stmt = null;
-        Connection conn = null;
-        try {
-            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
-            conn = DriverManager.getConnection(url);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-            return null;
-        }
-        try {
-            stmt = conn.createStatement();
-            stmt.setQueryTimeout(timeoutMillis);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-            return null;
-        }
-        try{
-            conn.setAutoCommit(false);
-            String sql = "INSERT INTO " + context + " (timestamp,metrics) " + " VALUES (?,?)";
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            int count = 0;
-            for(Bookmark bookmark : bookmarks){
-                String stats_str = "";
-                if (bookmark.getMetrics() != null) {
-                    ObjectMapper mapper = new ObjectMapper();
-                    try {
-                        stats_str = mapper.writeValueAsString(bookmark.getMetrics());
-                    } catch (JsonProcessingException e) {
-                        e.printStackTrace();
-                        return false;
-                    }
-                }
-
-                pstmt.setString(1,bookmark.getTimestamp().mysqlString());
-                pstmt.setString(2,stats_str);
-                pstmt.addBatch();
-                count++;
-                if(count % batch_size == 0){
-                    pstmt.executeBatch();
-                    conn.commit();
-                }
-            }
-            pstmt.executeBatch();
-            conn.commit();
-            pstmt.close();
-            stmt.close();
-            conn.close();
-            return true;
-        } catch (SQLException e) {
-            try {
-                conn.rollback();
-            } catch (SQLException internal_e) {
-                internal_e.printStackTrace();
-            }
-            return false;
-        }
-    }
-
-    public List<Bookmark> getTransactions(String bookmarkName, String transactionContext,Time starttime, Time endtime, Integer top) {
-        String sql = "SELECT * FROM " + transactionContext;
-        if (starttime != null || endtime != null || top != null) {
-            sql += " WHERE 1=1 ";
-            if (starttime != null) {
-                sql += " AND timestamp>='" + starttime.mysqlString() + "'";
-            }
-            if (endtime != null) {
-                sql += " AND timestamp<='" + endtime.mysqlString() + "'";
-            }
-            if (top != null) {
-                if (top > 0) {
-                    sql += " ORDER BY timestamp DESC LIMIT " + top;
-                } else if (top < 0) {
-                    sql += " ORDER BY timestamp ASC LIMIT " + -1*top;
-                }
-            }
-        }
-        List<Bookmark> bookmarks = null;
-        Statement stmt = null;
-        Connection conn = null;
-        try {
-            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
-            conn = DriverManager.getConnection(url);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
-            stmt = conn.createStatement();
-            stmt.setQueryTimeout(timeoutMillis);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
-            ResultSet rs = stmt.executeQuery(sql);
-            bookmarks = new ArrayList<>();
-            while (rs.next()) {
-                Bookmark bookmark = new Bookmark();
-                bookmark.setTimestamp(Time.parse(rs.getString("timestamp"),
-                        "uuuu-MM-dd HH:mm:ss.SSS"));
-                String metric_str = rs.getString("metrics");
-                if (metric_str != null && metric_str.contains("{")) {
-                    bookmark.setMetrics(new ObjectMapper().readValue(metric_str, HashMap.class));
-                }
-                bookmarks.add(bookmark);
-            }
-            stmt.close();
-            conn.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (JsonMappingException e) {
-            e.printStackTrace();
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-        }
-        return bookmarks;
-    }
-
-    public Map<String, Object> getStateValues(String bookmarkName, String stateEntry) {
-        String sql;
-        if (stateEntry != null) {
-            sql = "SELECT key,value FROM " + stateTable + " WHERE key='" + stateEntry;
-        } else {
-            sql = "SELECT key,value FROM " + stateTable;
-        }
-        Map<String, Object> stateValue = new HashMap<>();
-        Statement stmt = null;
-        Connection conn = null;
-        try {
-            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
-            conn = DriverManager.getConnection(url);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
-            stmt = conn.createStatement();
-            stmt.setQueryTimeout(timeoutMillis);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
-            ResultSet rs = stmt.executeQuery(sql);
-            while (rs.next()) {
-                stateValue.put(rs.getString("key"),rs.getObject("value"));
-            }
-            stmt.close();
-            conn.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return stateValue;
-    }
-
-    public Boolean updateStateValues(String bookmarkName, Map<String, Object> stateValues) {
-        String sql = "";
-        for (String key: stateValues.keySet()) {
-            sql += "UPSERT " + stateTable + " SET key='" + key +
-                    "',value='" + stateValues.get(key) + "' WHERE key='" + key + "';";
-        }
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
-        }
-    }
-
-    public Boolean saveStateValues(String bookmarkName, Map<String, Object> stateValues) {
-        String sql = "";
-        for (String key: stateValues.keySet()) {
-            sql += "UPSERT " + stateTable + " SET key='" + key +
-                    "',value='" + stateValues.get(key) + "' WHERE key='" + key + "';";
-        }
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
-        }
-    }
-
-    public Boolean saveBookmarkConfig(String bookmarkName, HashMap newConfig) {
-        String config_str = null;
-        if (newConfig != null) {
-            ObjectMapper mapper = new ObjectMapper();
-            try {
-                config_str = mapper.writeValueAsString(newConfig);
-            } catch (JsonProcessingException e) {
-                e.printStackTrace();
-                return false;
-            }
-        }
-        String sql = "UPDATE " + configTable + " SET config='" + config_str +
-                "' WHERE name='" + bookmarkName + "'";
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
-        }
-    }
-
-    public Boolean updateBookmarkConfig(String bookmarkName, HashMap<String, Object> updateConfig) {
-        HashMap<String, HashMap> bookmarkConfig = getBookmarkConfig(bookmarkName);
-        if (bookmarkConfig != null) {
-            HashMap currentConfig = bookmarkConfig.get(bookmarkName);
-            if (currentConfig != null) {
-                for (String key : updateConfig.keySet()){
-                    currentConfig.put(key, updateConfig.get(key));
-                }
-            } else {
-                currentConfig = updateConfig;
-            }
-            return saveBookmarkConfig(bookmarkName, currentConfig);
-        }
-        return null;
-    }
-
-    private Boolean addBookmarkState(String bookmarkName) {
-        String sql = "INSERT INTO " + stateTable + "(name,timestamp,state) VALUES('" + bookmarkName + "','"
-                + Time.now().mysqlString() + "'," + BookmarksService.UNLOCKED + ")";
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
-        }
-    }
-
-    private Boolean addBookmarkConfig(String bookmarkName, HashMap config) {
-        String configJsonString = null;
-        if (config != null) {
-            ObjectMapper mapper = new ObjectMapper();
-            try {
-                configJsonString = mapper.writeValueAsString(config);
-            } catch (JsonProcessingException e) {
-                e.printStackTrace();
-                return false;
-            }
-        }
-        String sql = "INSERT INTO " + configTable + "(name,config) VALUES('" + bookmarkName +  "','"
-                + configJsonString + "')";
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
-        }
-    }
-
-    private Object getElement(String bookmarkName, String sql) {
-        Object restultObject = null;
-        Statement stmt = null;
-        Connection conn = null;
-        try {
-            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
-            conn = DriverManager.getConnection(url);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
-            stmt = conn.createStatement();
-            stmt.setQueryTimeout(timeoutMillis);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
-            ResultSet rs = stmt.executeQuery(sql);
-            if (rs.next()) {
-                restultObject = rs.getObject(1);
-            }
-            stmt.close();
-            conn.close();
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        return restultObject;
-    }
-
-    private List<Object> getList(String bookmarkName, String sql) {
-        List result = null;
-        Statement stmt = null;
-        Connection conn = null;
-        try {
-            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
-            conn = DriverManager.getConnection(url);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
-            stmt = conn.createStatement();
-            stmt.setQueryTimeout(timeoutMillis);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
-            ResultSet rs = stmt.executeQuery(sql);
-            result = new ArrayList();
-            while (rs.next()) {
-                result.add(rs.getObject(1));
-            }
-            stmt.close();
-            conn.close();
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        return result;
-    }
-
-    private HashMap getConfigMap(String bookmarkName, String sql) {
-        HashMap result = null;
-        Statement stmt = null;
-        Connection conn = null;
-        try {
-            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
-            conn = DriverManager.getConnection(url);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
-            stmt = conn.createStatement();
-            stmt.setQueryTimeout(timeoutMillis);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
-            ResultSet rs = stmt.executeQuery(sql);
-            result = new HashMap();
-            while (rs.next()) {
-                String name = rs.getString(1);
-                HashMap config = null;
-                String config_str = rs.getString(2);
-                if (config_str != null) {
-                    try {
-                        config = new ObjectMapper().readValue(config_str, HashMap.class);
-                    } catch (JsonProcessingException e) {
-                        e.printStackTrace();
-                    }
-                }
-                result.put(name, config);
-            }
-            stmt.close();
-            conn.close();
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        return result;
-    }
-
-    private Boolean truncateTable(String bookmarkName, String tableName) {
-        String sql = "DELETE FROM " + tableName;
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
-        }
-    }
-
-    private Boolean createTxnTable(String bookmarkName, String context) {
-        String sql = "CREATE TABLE " + context + " ( " +
-                "timestamp TEXT PRIMARY KEY NOT NULL, " +
-                "metrics TEXT NOT NULL " +
-                ")";
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
-        }
-    }
-
-    private Boolean createFailedTable(String bookmarkName) {
-        String sql = "CREATE TABLE " + failedTable + " ( " +
-                "timestamp TEXT PRIMARY KEY NOT NULL, " +
-                "metrics TEXT NOT NULL " +
-                ")";
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
-        }
-    }
-
-    private Boolean createStateTable(String bookmarkName) {
-        String sql = "CREATE TABLE " + stateTable + " ( " +
-                "name TEXT PRIMARY KEY NOT NULL, " +
-                "timestamp TEXT NOT NULL ," +
-                "state INT NOT NULL)";
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
-        }
-    }
-
-    private Boolean createConfigTable(String bookmarkName) {
-        String sql = "CREATE TABLE " + configTable + "( " +
-                "name TEXT PRIMARY KEY NOT NULL, " +
-                "config TEXT)";
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
-        }
-    }
-
-    private Object enableWriteAhead(String bookmarkName) {
-        String sql = "PRAGMA journal_mode=WAL;";
-        return getElement(bookmarkName, sql);
-    }
-
-    private Boolean executeStatement(String bookmarkName, String sql) throws SQLException {
-        Statement stmt = null;
-        Connection conn = null;
-        try {
-            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
-            conn = DriverManager.getConnection(url);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-            return null;
-        }
-        try {
-            stmt = conn.createStatement();
-            stmt.setQueryTimeout(timeoutMillis);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-            return null;
-        }
-
-        stmt.executeUpdate(sql);
-        stmt.close();
-        conn.close();
-        return true;
-    }
-
-    private Boolean validBookmarkName(String bookmarkName){
-        if (bookmarkName != null && !bookmarkName.matches(".*\\s.*") && bookmarkName.length()>0)    {
-            return true;
-        }
-        return false;
-    }*/
 }
