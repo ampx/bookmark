@@ -44,42 +44,104 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
     }
 
-    private boolean createTxnContext(String bookmarkName, String context) {
-        String sql = "CREATE TABLE " + context + " ( " +
-                "id INTEGER PRIMARY KEY," +
-                "timestamp bigint NOT NULL, " +
-                "metrics json NOT NULL " +
-                ");" +
-                "CREATE INDEX timestamp_idx ON " + context + "(timestamp)";
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
+    @Override
+    public Boolean createBookmark(String bookmarkName, Metadata metadata) {
+        if (!validBookmarkName(bookmarkName) || bookmarkExists(bookmarkName)) {
             return false;
         }
+        //delete if there are any residue files from corrupted bookmark
+        deleteBookmark(bookmarkName);
+        //reject bookmark if there is invalid context name in metadata
+        if (metadata.getContextList() != null) {
+            for (String context: metadata.getContextList()) {
+                if (!validateContextName(context)) {
+                    return false;
+                }
+            }
+        }
+        if (metadata == null) {
+            metadata = new Metadata();
+        }
+        metadata.setLock(State.notReady);
+        if(createMetaTable(bookmarkName) && saveMetadata(bookmarkName, metadata)
+                && createValuesTable(bookmarkName) ) {
+            enableWriteAhead(bookmarkName);
+            if (metadata.getContextList() != null) {
+                for (String context: metadata.getContextList()) {
+                    createContext(bookmarkName, context);
+                }
+            }
+            Metadata unlock = new Metadata();
+            unlock.setLock(State.unlocked);
+            updateMetadata(bookmarkName, metadata);
+            return true;
+        }
+        return false;
     }
 
-    private boolean createValuesTable(String bookmarkName) {
-        String sql = "CREATE TABLE " + valuesTable + " ( " +
-                "name TEXT PRIMARY KEY, " +
-                "data json NOT NULL" +
-                ");";
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
+    @Override
+    public Boolean createContext(String bookmarkName, String context) {
+        Boolean success = true;
+        Metadata contextMeta = getMetadata(bookmarkName, new ArrayList(1){{add("contextList");}});
+        if (!contextMeta.getContextList().contains(context)) {
+            Metadata metadata = new Metadata();
+            List<String> contextList = new ArrayList<>(1);
+            contextList.add(context);
+            metadata.setContextList(contextList);
+            success &= updateMetadata(bookmarkName, metadata);
         }
+        String checkTxnTableSql = "SELECT name FROM sqlite_master WHERE type='table' AND name='" + context + "';";
+        Integer txnTableCount = (Integer) getElement(bookmarkName, checkTxnTableSql);
+        if (txnTableCount < 1) {
+            success &= createTxnTable(bookmarkName, context);
+        }
+        String checkValueTableSql = "SELECT count(*) FROM " + valuesTable + " WHERE name='" + context + "';";
+        Integer valueEntryCount = (Integer) getElement(bookmarkName, checkValueTableSql);
+        if (valueEntryCount < 1) {
+            success &= createValueEntry(bookmarkName, context);
+        }
+        return success;
     }
 
-    private boolean createMetaTable(String bookmarkName) {
-        String sql = "CREATE TABLE " + metaTable + " ( " +
-                "name string PRIMARY KEY NOT NULL, " +
-                "data json NOT NULL" +
-                ")";
-        try {
-            return executeStatement(bookmarkName, sql);
-        } catch (SQLException throwables) {
-            return false;
+    @Override
+    public Boolean bookmarkExists(String bookmarkName) {
+        if (Files.exists(Paths.get(path + bookmarkName + ".db"))) {
+            Metadata metadata = getMetadata(bookmarkName, null);
+            if (metadata.getLock() >= 0) {
+                return true;
+            }
         }
+        return false;
+    }
+
+    @Override
+    public Boolean contextExists(String bookmarkName, String context) {
+        Metadata contextMeta = getMetadata(bookmarkName, new ArrayList(1){{add("contextList");}});
+        String checkTxnTableSql = "SELECT name FROM sqlite_master WHERE type='table' AND name='" + context + "';";
+        Integer txnTableCount = (Integer) getElement(bookmarkName, checkTxnTableSql);
+        String checkValueTableSql = "SELECT count(*) FROM " + valuesTable + " WHERE name='" + context + "';";
+        Integer valueEntryCount = (Integer) getElement(bookmarkName, checkValueTableSql);
+        return contextMeta.getContextList().contains(context)
+                && txnTableCount > 0 && valueEntryCount > 0;
+    }
+
+    @Override
+    public List<String> getBookmarkList() {
+        File[] files = new File(path).listFiles();
+        List<String> names = new ArrayList();
+        for (File file:files) {
+            if (file.getName().endsWith(".db")) {
+                String[] split = file.getName().split("\\.");
+                names.add(split[0]);
+            }
+        }
+        return names;
+    }
+
+    @Override
+    public List<String> getContextList(String bookmarkName) {
+        Metadata contextMeta = getMetadata(bookmarkName, new ArrayList(1){{add("contextList");}});
+        return contextMeta.getContextList();
     }
 
     @Override
@@ -256,13 +318,83 @@ public class BookmarkSqliteDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean updateBookmarkValues(String bookmarkName, BookmarkValues values) {
-        return updateJsonOnKey(bookmarkName, valuesTable, values.getContext(), values.getValues());
+    public Boolean updateBookmarkValues(String bookmarkName, BookmarkValues values) throws ConfigurationException {
+        Statement stmt = null;
+        Connection conn = createConnection(bookmarkName);
+        try {
+            stmt = conn.createStatement();
+            stmt.setQueryTimeout(timeoutMillis);
+            conn.setAutoCommit(false);
+            String sql = "UPDATE " + valuesTable + " SET data=json_patch(data, ?) " +
+                    "WHERE name=" + values.getContext();
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            String data = null;
+            if (values.getValues() != null) {
+                ObjectMapper mapper = new ObjectMapper();
+                try {
+                    data = mapper.writeValueAsString(values.getValues());
+                } catch (JsonProcessingException e) {
+                    return false;
+                }
+            }
+            pstmt.setString(1, data);
+            Integer updateCount = pstmt.executeUpdate();
+            pstmt.close();
+            stmt.close();
+            conn.close();
+            if (updateCount < 1) {
+                throw new ConfigurationException("didn't update values - check if context is setup");
+            }
+            return true;
+        } catch (SQLException e) {
+            try {
+                conn.rollback();
+                conn.close();
+            } catch (SQLException throwables) {
+                throwables.printStackTrace();
+            }
+            throw new ConfigurationException("didn't update values - check if context is setup");
+        }
     }
 
     @Override
-    public Boolean saveBookmarkValues(String bookmarkName, BookmarkValues values) {
-        return saveJsonOnKey(bookmarkName, valuesTable, values.getContext(), values.getValues());
+    public Boolean saveBookmarkValues(String bookmarkName, BookmarkValues values) throws ConfigurationException {
+        Statement stmt = null;
+        Connection conn = createConnection(bookmarkName);
+        try {
+            stmt = conn.createStatement();
+            stmt.setQueryTimeout(timeoutMillis);
+            conn.setAutoCommit(false);
+            String sql = "UPDATE " + valuesTable + " SET data=json(?) " +
+                    "WHERE name=" + values.getContext();
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            String data = null;
+            if (values.getValues() != null) {
+                ObjectMapper mapper = new ObjectMapper();
+                try {
+                    data = mapper.writeValueAsString(values.getValues());
+                } catch (JsonProcessingException e) {
+                    return false;
+                }
+            }
+            pstmt.setString(1, data);
+            Integer updateCount = pstmt.executeUpdate();
+            pstmt.close();
+            stmt.close();
+            conn.close();
+            if (updateCount < 1) {
+                throw new ConfigurationException("didn't update values - check if context is setup");
+            }
+            return true;
+        } catch (SQLException e) {
+            try {
+                conn.rollback();
+                conn.close();
+            } catch (SQLException throwables) {
+                throwables.printStackTrace();
+            }
+            throw new ConfigurationException("didn't update values - check if context is setup");
+        }
     }
 
     @Override
@@ -427,156 +559,6 @@ public class BookmarkSqliteDao implements BookmarkDao{
         return valuesMap;
     }
 
-    private Boolean updateJsonOnKey(String bookmarkName, String tableName, Object key, Map<String, Object> json) {
-        Statement stmt = null;
-        Connection conn = null;
-        try {
-            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
-            conn = DriverManager.getConnection(url);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-            return null;
-        }
-        try {
-            stmt = conn.createStatement();
-            stmt.setQueryTimeout(timeoutMillis);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-            return null;
-        }
-        try{
-            conn.setAutoCommit(false);
-            String sql = "INSERT INTO " + tableName + " (name, data) VALUES (?,?)" +
-                    " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, ?)";
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            int count = 0;
-
-            String data = null;
-            if (json != null) {
-                ObjectMapper mapper = new ObjectMapper();
-                try {
-                    data = mapper.writeValueAsString(json);
-                } catch (JsonProcessingException e) {
-                    return false;
-                }
-            }
-            pstmt.setObject(1, key);
-            pstmt.setString(2, data);
-            pstmt.setString(4, data);
-            pstmt.addBatch();
-            pstmt.executeBatch();
-            conn.commit();
-            pstmt.close();
-            stmt.close();
-            conn.close();
-            return true;
-        } catch (SQLException e) {
-            try {
-                conn.rollback();
-            } catch (SQLException internal_e) {
-                internal_e.printStackTrace();
-            }
-            return false;
-        }
-    }
-
-    private Boolean saveJsonOnKey(String bookmarkName, String tableName, Object key, Map<String, Object> json) {
-        Statement stmt = null;
-        Connection conn = null;
-        try {
-            String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
-            conn = DriverManager.getConnection(url);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-            return null;
-        }
-        try {
-            stmt = conn.createStatement();
-            stmt.setQueryTimeout(timeoutMillis);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-            return null;
-        }
-        try{
-            conn.setAutoCommit(false);
-            String sql = "REPLACE INTO " + tableName + " (name, data) " + " VALUES (?,?)";
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            int count = 0;
-
-            String data = null;
-            if (json != null) {
-                ObjectMapper mapper = new ObjectMapper();
-                try {
-                    data = mapper.writeValueAsString(json);
-                } catch (JsonProcessingException e) {
-                    return false;
-                }
-            }
-            pstmt.setObject(1, key);
-            pstmt.setString(2, data);
-            pstmt.addBatch();
-            pstmt.executeBatch();
-            conn.commit();
-            pstmt.close();
-            stmt.close();
-            conn.close();
-            return true;
-        } catch (SQLException e) {
-            try {
-                conn.rollback();
-            } catch (SQLException internal_e) {
-                internal_e.printStackTrace();
-            }
-            return false;
-        }
-    }
-
-    @Override
-    public Boolean bookmarkExists(String bookmarkName) {
-        if (Files.exists(Paths.get(path + bookmarkName + ".db"))) {
-            Metadata metadata = getMetadata(bookmarkName, null);
-            if (metadata.getLock() >= 0) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    @Override
-    public List<String> getBookmarkList() {
-        File[] files = new File(path).listFiles();
-        List<String> names = new ArrayList();
-        for (File file:files) {
-            if (file.getName().endsWith(".db")) {
-                String[] split = file.getName().split("\\.");
-                names.add(split[0]);
-            }
-        }
-        return names;
-    }
-
-    @Override
-    public Boolean createBookmark(String bookmarkName, Metadata metadata) {
-        if (metadata == null) {
-            metadata = new Metadata();
-        }
-        metadata.setLock(State.notReady);
-        if(validBookmarkName(bookmarkName) && !bookmarkExists(bookmarkName) && createMetaTable(bookmarkName)
-            && saveMetadata(bookmarkName, metadata) && createValuesTable(bookmarkName) ) {
-            enableWriteAhead(bookmarkName);
-            if (metadata.getContextList() != null) {
-                for (String context: metadata.getContextList()) {
-                    createTxnContext(bookmarkName, context);
-                }
-            }
-            Metadata unlock = new Metadata();
-            unlock.setLock(State.unlocked);
-            updateMetadata(bookmarkName, metadata);
-            return true;
-        }
-        return false;
-    }
-
     @Override
     public Boolean cleanTxnRecords(String bookmarkName, String context, Time cutofftime) {
         String sql = "DELETE FROM " + context + " WHERE timestamp<='" + cutofftime.getInstant().toEpochMilli() +"'";
@@ -635,6 +617,16 @@ public class BookmarkSqliteDao implements BookmarkDao{
         } catch (IOException e) {
             return false;
         }
+    }
+
+    @Override
+    public Boolean validateBookmarkName(String bookmarkName) {
+        return null;
+    }
+
+    @Override
+    public Boolean validateContextName(String contextName) {
+        return null;
     }
 
     private Boolean truncateTable(String bookmarkName, String tableName) {
@@ -709,6 +701,66 @@ public class BookmarkSqliteDao implements BookmarkDao{
             return true;
         }
         return false;
+    }
+
+    private Connection createConnection(String databaseName) {
+        Boolean validName = validateBookmarkName(databaseName);
+        try {
+            if (validName) {
+                Connection conn = null;
+                String url = "jdbc:sqlite:" + path + "/" + databaseName + ".db";
+                conn = DriverManager.getConnection(url);
+            }
+        } catch (Exception e) {}
+        throw new IllegalArgumentException("invalid bookmark name or bad configuration");
+
+    }
+
+    private boolean createTxnTable(String bookmarkName, String context) {
+        String sql = "CREATE TABLE " + context + " ( " +
+                "id INTEGER PRIMARY KEY," +
+                "timestamp bigint NOT NULL, " +
+                "metrics json NOT NULL " +
+                ");" +
+                "CREATE INDEX timestamp_idx ON " + context + "(timestamp)";
+        try {
+            return executeStatement(bookmarkName, sql);
+        } catch (SQLException throwables) {
+            return false;
+        }
+    }
+
+    private boolean createValueEntry(String bookmarkName, String context) {
+        String sql = "INSERT INTO " + valuesTable + "(name,data) values('" + context +"','" + "{}" + "')";
+        try {
+            return executeStatement(bookmarkName, sql);
+        } catch (SQLException throwables) {
+            return false;
+        }
+    }
+
+    private boolean createValuesTable(String bookmarkName) {
+        String sql = "CREATE TABLE " + valuesTable + " ( " +
+                "name TEXT PRIMARY KEY, " +
+                "data json NOT NULL" +
+                ");";
+        try {
+            return executeStatement(bookmarkName, sql);
+        } catch (SQLException throwables) {
+            return false;
+        }
+    }
+
+    private boolean createMetaTable(String bookmarkName) {
+        String sql = "CREATE TABLE " + metaTable + " ( " +
+                "name string PRIMARY KEY NOT NULL, " +
+                "data json NOT NULL" +
+                ")";
+        try {
+            return executeStatement(bookmarkName, sql);
+        } catch (SQLException throwables) {
+            return false;
+        }
     }
 
     /*

@@ -33,50 +33,6 @@ public class BookmarksService {
         return bookmarkDao.getBookmarkList();
     }
 
-    public Boolean createBookmark(String bookmarkName, Metadata metadata) {
-        if (!bookmarkExists(bookmarkName)) {
-            return bookmarkDao.createBookmark(bookmarkName, metadata);
-        }
-        return false;
-    }
-
-    private Boolean validateBookmarkSetup(String bookmarkName, Metadata metadata) {
-        Boolean success = true;
-        if (!bookmarkExists(bookmarkName)) {
-            success &= bookmarkDao.createBookmark(bookmarkName, metadata);
-        }
-        return success;
-    }
-
-    private Boolean validateTxnContextSetup(String bookmarkName, String context, BookmarkTxns txn) {
-        Boolean success = true;
-        if (context!= null && !bookmarkDao.txnContextExists(bookmarkName, context)) {
-            Metadata metadata = bookmarkDao.getMetadata(bookmarkName, null);
-            if (metadata.getSchema() == null || metadata.getSchema().get(context) == null) {
-                Metadata schema = new Metadata();
-                HashMap<String, String> schemaMap = inferSchema(txn);
-                if (schemaMap != null) {
-                    schema.setSchema(schemaMap);
-                }
-                bookmarkDao.updateMetadata(bookmarkName, schema);
-            }
-            success &= bookmarkDao.createTxnContext(bookmarkName, context);
-        }
-        return success;
-    }
-
-    private Boolean validateValueContextSetup(String bookmarkName, String context) {
-        Boolean success = true;
-        if (context!= null && !bookmarkDao.valueContextExists(bookmarkName, context)) {
-            success &= bookmarkDao.createValueContext(bookmarkName, context);
-        }
-        return success;
-    }
-
-    private HashMap<String, String> inferSchema(BookmarkTxns txns) {
-        return null;
-    }
-
     public Boolean bookmarkExists(String bookmarkName)
     {
         return bookmarkDao.bookmarkExists(bookmarkName);
@@ -117,51 +73,55 @@ public class BookmarksService {
             return bookmarkDao.saveBookmarkTxn(bookmarkName, txns);
         } catch (Exception e) {
             return validateBookmarkSetup(bookmarkName, defaultMeta) &&
-                    validateTxnContextSetup(bookmarkName, txns.getContext(), txns);
+                    validateTxnContextSetup(bookmarkName, txns.getContext(), txns) &&
+                    bookmarkDao.saveBookmarkTxn(bookmarkName, txns);
         }
     }
 
     public Boolean updateBookmarkTxn(String bookmarkName, BookmarkTxns txns) {
+        if (txns.getContext() == null) {
+            txns.setContext(defaultContextName);
+        }
         try {
-            if (bookmarkDao.bookmarkExists(bookmarkName)) {
-                if (txns != null && bookmarkDao.updateBookmarkTxn(bookmarkName, txns)) {
-                    return true;
-                } else {
-                    return false;
-                }
-            }
+            return bookmarkDao.updateBookmarkTxn(bookmarkName, txns);
         } catch (Exception e) {
-            validateBookmarkSetup(metadata, bookmarkName, null);
+            return validateBookmarkSetup(bookmarkName, defaultMeta) &&
+                    validateTxnContextSetup(bookmarkName, txns.getContext(), txns) &&
+                    bookmarkDao.updateBookmarkTxn(bookmarkName, txns);
         }
     }
 
     public BookmarkValues getBookmarkValues(String bookmarkName, ValueQuery query)
     {
         try {
-            if (bookmarkDao.bookmarkExists(bookmarkName)) {
-                return bookmarkDao.getBookmarkValues(bookmarkName, query);
-            }
+            return bookmarkDao.getBookmarkValues(bookmarkName, query);
         } catch (Exception e) {}
         throw new IllegalArgumentException("Invalid Request");
     }
 
     public Boolean updateBookmarkValues(String bookmarkName, BookmarkValues values) {
+        if (values.getContext() == null) {
+            values.setContext(defaultContextName);
+        }
         try {
-            if (bookmarkDao.bookmarkExists(bookmarkName)) {
-                return bookmarkDao.updateBookmarkValues(bookmarkName, values);
-            }
+            return bookmarkDao.updateBookmarkValues(bookmarkName, values);
         } catch (Exception e) {
-            validateBookmarkSetup(metadata, bookmarkName, null);
+            return validateBookmarkSetup(bookmarkName, defaultMeta) &&
+                    validateValueContextSetup(bookmarkName, values.getContext()) &&
+                    bookmarkDao.updateBookmarkValues(bookmarkName, values);
         }
     }
 
     public Boolean saveBookmarkValues(String bookmarkName, BookmarkValues values) {
+        if (values.getContext() == null) {
+            values.setContext(defaultContextName);
+        }
         try {
-            if (bookmarkDao.bookmarkExists(bookmarkName)) {
-                return bookmarkDao.saveBookmarkValues(bookmarkName, values);
-            }
+            return bookmarkDao.saveBookmarkValues(bookmarkName, values);
         } catch (Exception e) {
-            validateBookmarkSetup(metadata, bookmarkName, null);
+            return validateBookmarkSetup(bookmarkName, defaultMeta) &&
+                    validateValueContextSetup(bookmarkName, values.getContext()) &&
+                    bookmarkDao.saveBookmarkValues(bookmarkName, values);
         }
     }
 
@@ -197,6 +157,67 @@ public class BookmarksService {
                 bookmarkDao.cleanTxnRecords(bookmarkName, null, cutofftime);
             }
         }
+    }
+
+    private HashMap<String, String> inferSchema(BookmarkTxns txns) {
+        HashMap<String, String> schema = new HashMap<>();
+        if (txns != null && txns.getBookmarks().size() > 0) {
+            for (Bookmark bookmark : txns.getBookmarks()) {
+                HashMap<String, Object> metrics = bookmark.getMetrics();
+                for (String key : metrics.keySet()) {
+                    if (metrics.get(key) != null) {
+                        if (metrics.get(key) instanceof Long || metrics.get(key) instanceof Integer) {
+                            schema.put(key, "INT");
+                        } else if (metrics.get(key) instanceof Double || metrics.get(key) instanceof Float) {
+                            schema.put(key, "FLOAT");
+                        } else if (metrics.get(key) instanceof Boolean) {
+                            schema.put(key, "BOOL");
+                        } else {
+                            schema.put(key, "STRING");
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public Boolean createBookmark(String bookmarkName, Metadata metadata) {
+        if (!bookmarkExists(bookmarkName)) {
+            return bookmarkDao.createBookmark(bookmarkName, metadata);
+        }
+        return false;
+    }
+
+    private Boolean validateBookmarkSetup(String bookmarkName, Metadata metadata) {
+        Boolean success = true;
+        if (!bookmarkExists(bookmarkName)) {
+            success &= bookmarkDao.createBookmark(bookmarkName, metadata);
+        }
+        return success;
+    }
+
+    private Boolean validateTxnContextSetup(String bookmarkName, String context, BookmarkTxns txn) {
+        Boolean success = true;
+        if (context!= null && !bookmarkDao.contextExists(bookmarkName, context)) {
+            Metadata metadata = bookmarkDao.getMetadata(bookmarkName, null);
+            if (metadata.getSchema() == null || metadata.getSchema().get(context) == null) {
+                Metadata schema = new Metadata();
+                HashMap<String, Map> schemaMap = new HashMap(1) {{put(context, inferSchema(txn));}};
+                schema.setSchema(schemaMap);
+                bookmarkDao.updateMetadata(bookmarkName, schema);
+            }
+            success &= bookmarkDao.createTxnContext(bookmarkName, context);
+        }
+        return success;
+    }
+
+    private Boolean validateValueContextSetup(String bookmarkName, String context) {
+        Boolean success = true;
+        if (context!= null && !bookmarkDao.valueContextExists(bookmarkName, context)) {
+            success &= bookmarkDao.createValueContext(bookmarkName, context);
+        }
+        return success;
     }
 
     public BookmarkInstanceService createInstantService(String bookmarkName) {

@@ -21,11 +21,11 @@ public class Metadata {
         this.lock = lock;
     }
 
-    public Map<String, Object> getSchema() {
+    public Map<String, Map> getSchema() {
         return schema;
     }
 
-    public void setSchema(HashMap<String, String> schema) {
+    public void setSchema(HashMap<String, Map> schema) {
         this.schema = schema;
     }
 
@@ -39,6 +39,6 @@ public class Metadata {
 
     Map<String, Object> config;
     Integer lock;
-    Map<String, Object> schema;
+    Map<String, Map> schema;
     List<String> contextList;
 }
