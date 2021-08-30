@@ -1,10 +1,9 @@
 package bookmark.config;
 
-import bookmark.controller.BookmarkController;
 import bookmark.dao.BookmarkClientDao;
 import bookmark.dao.BookmarkDao;
 import bookmark.dao.BookmarkSqliteDao;
-import bookmark.service.BookmarkInstanceService;
+import bookmark.service.BookmarkService;
 import bookmark.service.BookmarksService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.*;
@@ -16,11 +15,11 @@ public class BookmarkServiceConfig {
     ConfigProperties configProperties;
 
     @Bean
-    public BookmarkInstanceService bookmarkInstanceService() {
-        BookmarkInstanceService bookmarkInstanceService = new BookmarkInstanceService();
-        bookmarkInstanceService.setBookmarksService(bookmarksService());
-        bookmarkInstanceService.setBookmarkName(configProperties.getBookmarkName());
-        return bookmarkInstanceService;
+    public BookmarkService bookmarkInstanceService() {
+        BookmarkService bookmarkService = new BookmarkService();
+        //bookmarkInstanceService.setBookmarksService(bookmarksService());
+        //bookmarkInstanceService.setBookmarkName(configProperties.getBookmarkName());
+        return bookmarkService;
     }
 
     private BookmarkDao bookmarkDao(){

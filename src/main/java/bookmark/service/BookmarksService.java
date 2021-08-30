@@ -13,7 +13,6 @@ public class BookmarksService {
     Integer defaultRetentionDays = 30;
     Integer maintenancePeriodDays = 7;
     BookmarkDao bookmarkDao;
-    Metadata defaultMeta;
     String defaultContextName = "default";
 
     public void setCleanupPeriodMins(Integer cleanupPeriodMins) {
@@ -31,6 +30,9 @@ public class BookmarksService {
     public Boolean createBookmark(String bookmarkName, Metadata metadata) {
         try {
             if (!bookmarkExists(bookmarkName)) {
+                if (metadata == null) {
+                    metadata = getDefaultMeta();
+                }
                 return bookmarkDao.createBookmark(bookmarkName, metadata);
             }
             return false;
@@ -87,7 +89,7 @@ public class BookmarksService {
             return bookmarkDao.updateMetadata(bookmarkName, metadata);
         } catch (Exception e) {
             try {
-                return validateBookmarkSetup(bookmarkName, defaultMeta) &&
+                return validateBookmarkSetup(bookmarkName, getDefaultMeta()) &&
                         bookmarkDao.updateMetadata(bookmarkName, metadata);
             } catch (Exception ex) {
                 throw new IllegalArgumentException("Invalid Request");
@@ -100,7 +102,7 @@ public class BookmarksService {
             return bookmarkDao.saveMetadata(bookmarkName, metadata);
         } catch (Exception e) {
             try {
-                return validateBookmarkSetup(bookmarkName, defaultMeta) &&
+                return validateBookmarkSetup(bookmarkName, getDefaultMeta()) &&
                         bookmarkDao.saveMetadata(bookmarkName, metadata);
             } catch (Exception ex) {
                 throw new IllegalArgumentException("Invalid Request");
@@ -130,7 +132,7 @@ public class BookmarksService {
             return bookmarkDao.saveBookmarkTxn(bookmarkName, txns);
         } catch (Exception e) {
             try {
-                return validateBookmarkSetup(bookmarkName, defaultMeta) &&
+                return validateBookmarkSetup(bookmarkName, getDefaultMeta()) &&
                         validateTxnContextSetup(bookmarkName, txns.getContext(), txns) &&
                         bookmarkDao.saveBookmarkTxn(bookmarkName, txns);
             } catch (Exception ex) {
@@ -147,7 +149,7 @@ public class BookmarksService {
             return bookmarkDao.updateBookmarkTxn(bookmarkName, txns);
         } catch (Exception e) {
             try {
-                return validateBookmarkSetup(bookmarkName, defaultMeta) &&
+                return validateBookmarkSetup(bookmarkName, getDefaultMeta()) &&
                         validateTxnContextSetup(bookmarkName, txns.getContext(), txns) &&
                         bookmarkDao.updateBookmarkTxn(bookmarkName, txns);
             } catch (Exception ex) {
@@ -173,7 +175,7 @@ public class BookmarksService {
             return bookmarkDao.updateBookmarkValues(bookmarkName, values);
         } catch (Exception e) {
             try {
-                return validateBookmarkSetup(bookmarkName, defaultMeta) &&
+                return validateBookmarkSetup(bookmarkName, getDefaultMeta()) &&
                         validateContextSetup(bookmarkName, values.getContext()) &&
                         bookmarkDao.updateBookmarkValues(bookmarkName, values);
             } catch (Exception ex) {
@@ -190,12 +192,28 @@ public class BookmarksService {
             return bookmarkDao.saveBookmarkValues(bookmarkName, values);
         } catch (Exception e) {
             try {
-                return validateBookmarkSetup(bookmarkName, defaultMeta) &&
+                return validateBookmarkSetup(bookmarkName, getDefaultMeta()) &&
                         validateContextSetup(bookmarkName, values.getContext()) &&
                         bookmarkDao.saveBookmarkValues(bookmarkName, values);
             } catch (Exception ex) {
                 throw new IllegalArgumentException("Invalid Request");
             }
+        }
+    }
+
+    public State getState(String bookmarkName) {
+        try {
+            return bookmarkDao.getState(bookmarkName);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Invalid Request");
+        }
+    }
+
+    public Boolean updateState(String bookmarkName, State state) {
+        try {
+            return bookmarkDao.switchState(bookmarkName, state);
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Invalid Request");
         }
     }
 
@@ -289,17 +307,23 @@ public class BookmarksService {
         return success;
     }
 
-    public BookmarkInstanceService createInstantService(String bookmarkName) {
-        BookmarkInstanceService bookmarkInstanceService = new BookmarkInstanceService();
-        bookmarkInstanceService.setBookmarkName(bookmarkName);
-        bookmarkInstanceService.setBookmarksService(this);
-        return bookmarkInstanceService;
+    public BookmarkService createInstantService(String bookmarkName) {
+        BookmarkService bookmarkService = new BookmarkService();
+        //bookmarkInstanceService.setBookmarkName(bookmarkName);
+        //bookmarkInstanceService.setBookmarksService(this);
+        return bookmarkService;
     }
 
-    public BookmarkTransactionInstanceService createTransactionInstanceService(String bookmarkName, String context) {
-        BookmarkTransactionInstanceService bookmarkTransactionInstanceService = new BookmarkTransactionInstanceService();
-        bookmarkTransactionInstanceService.setBookmarkInstanceService(createInstantService(bookmarkName));
-        bookmarkTransactionInstanceService.setContextName(context);
-        return bookmarkTransactionInstanceService;
+    public ContextService createTransactionInstanceService(String bookmarkName, String context) {
+        ContextService contextService = new ContextService();
+        contextService.setBookmarkInstanceService(createInstantService(bookmarkName));
+        contextService.setContextName(context);
+        return contextService;
+    }
+
+    public Metadata getDefaultMeta() {
+        Metadata metadata = new Metadata();
+        metadata.setTxnRetentionDays(defaultRetentionDays);
+        return metadata;
     }
 }

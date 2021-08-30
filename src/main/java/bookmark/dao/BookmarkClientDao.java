@@ -1,7 +1,6 @@
 package bookmark.dao;
 
-import bookmark.model.Bookmark;
-import bookmark.model.Metadata;
+import bookmark.model.*;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +15,7 @@ import java.util.Map;
 
 public class BookmarkClientDao implements BookmarkDao{
 
-    String url = "http://localhost:8080/bookmarks";
+    String url = "http://localhost:8080";
     RestTemplate restTemplate = new RestTemplate();
 
     public BookmarkClientDao(String url) throws ConfigurationException {
@@ -27,6 +26,121 @@ public class BookmarkClientDao implements BookmarkDao{
         }
     }
 
+    @Override
+    public Boolean createBookmark(String bookmarkName, Metadata metadata) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean createContext(String bookmarkName, String context) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean bookmarkExists(String bookmarkName) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean contextExists(String bookmarkName, String context) throws Exception {
+        return null;
+    }
+
+    @Override
+    public List<String> getBookmarkList() {
+        return null;
+    }
+
+    @Override
+    public List<String> getContextList(String bookmarkName) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean saveBookmarkTxn(String bookmarkName, BookmarkTxns txns) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean updateBookmarkTxn(String bookmarkName, BookmarkTxns txns) throws Exception {
+        return null;
+    }
+
+    @Override
+    public BookmarkTxns getBookmarkTxn(String bookmarkName, TxnQuery query) throws Exception {
+        return null;
+    }
+
+    @Override
+    public BookmarkValues getBookmarkValues(String bookmarkName, ValueQuery query) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean updateBookmarkValues(String bookmarkName, BookmarkValues values) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean saveBookmarkValues(String bookmarkName, BookmarkValues values) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean cleanTxnRecords(String bookmarkName, String context, Time cutoffTime) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Metadata getMetadata(String bookmarkName, List<String> options) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean updateMetadata(String bookmarkName, Metadata metadata) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean saveMetadata(String bookmarkName, Metadata metadata) throws Exception {
+        return null;
+    }
+
+    @Override
+    public State getState(String bookmarkName) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean switchState(String bookmarkName, State state) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean maintenance() throws Exception {
+        return null;
+    }
+
+    @Override
+    public Double size() throws Exception {
+        return null;
+    }
+
+    @Override
+    public Double size(String bookmarkName) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Integer recordCount(String bookmarkName, String context) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean deleteBookmark(String bookmarkName) {
+        return null;
+    }
+/*
     @Override
     public Boolean bookmarkExists(String bookmarkName) {
         String bookmarkUrl = url + "/" + bookmarkName;
@@ -189,5 +303,5 @@ public class BookmarkClientDao implements BookmarkDao{
             return (Boolean) result.getBody().get("success");
         }
         else return null;
-    }
+    }*/
 }

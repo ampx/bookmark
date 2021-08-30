@@ -42,6 +42,10 @@ public interface BookmarkDao {
 
     public Boolean saveMetadata(String bookmarkName, Metadata metadata) throws Exception;
 
+    public State getState(String bookmarkName) throws Exception;
+
+    public Boolean switchState(String bookmarkName, State state) throws Exception;
+
     public Boolean maintenance() throws Exception;
 
     public Double size() throws Exception;

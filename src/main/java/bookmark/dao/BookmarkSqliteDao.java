@@ -74,7 +74,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
             }
             Metadata unlock = new Metadata();
             unlock.setLock(State.unlocked);
-            updateMetadata(bookmarkName, metadata);
+            updateMetadata(bookmarkName, unlock);
             return true;
         }
         return false;
@@ -111,9 +111,13 @@ public class BookmarkSqliteDao implements BookmarkDao{
     public Boolean bookmarkExists(String bookmarkName) throws Exception{
         //bookmark exists if it has a database created and the lock is not in NotReady state
         if (Files.exists(Paths.get(path + bookmarkName + ".db"))) {
-            Metadata metadata = getMetadata(bookmarkName, null);
-            if (metadata.getLock() >= 0) {
-                return true;
+            String sql = "SELECT name FROM sqlite_master WHERE type='table' AND name='" + metaTable + "';";
+            Integer metaTableCount = (Integer) getElement(bookmarkName, sql);
+            if (metaTableCount > 0) {
+                Metadata metadata = getMetadata(bookmarkName, null);
+                if (metadata.getLock() >= 0) {
+                    return true;
+                }
             }
         }
         return false;
@@ -452,7 +456,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
         String sql = "";
         if (metadata.getConfig() != null) {
             String configStr = mapper.writeValueAsString(metadata.getConfig());
-            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('config'," + configStr + ")" +
+            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('config',json('" + configStr + "'))" +
                     " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, ?)";
         }
         if (metadata.getLock() != null) {
@@ -461,12 +465,12 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
         if (metadata.getSchema() != null) {
             String schemasStr = mapper.writeValueAsString(metadata.getSchema());
-            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('schemas'," + schemasStr + ")" +
+            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('schemas',json('" + schemasStr + "'))" +
                     " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, ?)";
         }
         if (metadata.getContextList() != null) {
             String contextListStr = mapper.writeValueAsString(metadata.getContextList());
-            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('contextList'," + metadata.getContextList() + ")" +
+            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('contextList',json('" + metadata.getContextList() + "'))" +
                     " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, [" + contextListStr + "])";
         }
         return executeStatement(bookmarkName, sql);
@@ -477,20 +481,52 @@ public class BookmarkSqliteDao implements BookmarkDao{
         String sql = "";
         if (metadata.getConfig() != null) {
             String configStr = mapper.writeValueAsString(metadata.getConfig());
-            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('config',"+ configStr +")";
+            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('config',json('"+ configStr +"'));";
         }
         if (metadata.getLock() != null) {
-            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('lock',"+ metadata.getLock() +")";
+            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('lock',"+ metadata.getLock() +");";
         }
         if (metadata.getSchema() != null) {
             String schemasStr = mapper.writeValueAsString(metadata.getSchema());
-            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('schemas',"+ schemasStr +")";
+            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('schemas',json('"+ schemasStr +"'));";
         }
         if (metadata.getContextList() != null) {
             String contextListStr = mapper.writeValueAsString(metadata.getContextList());
-            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('contextList',"+ contextListStr +")";
+            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('contextList',json('"+ contextListStr +"'));";
         }
         return executeStatement(bookmarkName, sql);
+    }
+
+    public State getState(String bookmarkName) throws Exception {
+        String sql = "SELECT data FROM " + metaTable + " WHERE name='lock'";
+        return new State((Integer)getElement(bookmarkName, sql));
+    }
+
+    public Boolean switchState(String bookmarkName, State state) throws Exception {
+        Statement stmt = null;
+        Connection conn = createConnection(bookmarkName);
+        try {
+            stmt = conn.createStatement();
+            stmt.setQueryTimeout(timeoutMillis);
+            conn.setAutoCommit(false);
+            String sql = "UPDATE " + metaTable + " SET data=? WHERE name='lock' AND data!=?";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setInt(1, state.getState());
+            pstmt.setInt(2, state.getState());
+            Integer updateCount = pstmt.executeUpdate();
+            pstmt.close();
+            stmt.close();
+            conn.close();
+            if (updateCount < 1) {
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            try {conn.rollback();} catch (Exception ex) {}
+            try {stmt.close();} catch (Exception ex) {}
+            try {conn.close();} catch (Exception ex) {}
+            throw e;
+        }
     }
 
     @Override
@@ -683,6 +719,12 @@ public class BookmarkSqliteDao implements BookmarkDao{
                 "name string PRIMARY KEY NOT NULL, " +
                 "data json NOT NULL" +
                 ")";
+
+        sql += "INSERT INTO " + metaTable + " (name, data) " + " VALUES ('config',json('{}'));";
+
+        sql += "INSERT INTO " + metaTable + " (name, data) " + " VALUES ('lock',-1);";
+        sql += "INSERT INTO " + metaTable + " (name, data)  VALUES ('schemas',json('{}'));";
+        sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('contextList',json('{}'))";
         try {
             return executeStatement(bookmarkName, sql);
         } catch (Exception throwables) {

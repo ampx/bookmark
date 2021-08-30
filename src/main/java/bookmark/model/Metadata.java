@@ -37,6 +37,29 @@ public class Metadata {
         this.contextList = contextList;
     }
 
+    public void setTxnRetentionDays(Integer days) {
+        if (config == null) {
+            config = new HashMap<>(5);
+        }
+        config.put("txnRetentionDays", days);
+    }
+
+    public Integer getTxnRetentionDays() {
+        if (config == null) {
+            return null;
+        }
+        return (Integer) config.get("txnRetentionDays");
+    }
+
+    public String getBookmarkName() {
+        return bookmarkName;
+    }
+
+    public void setBookmarkName(String bookmarkName) {
+        this.bookmarkName = bookmarkName;
+    }
+
+    String bookmarkName;
     Map<String, Object> config;
     Integer lock;
     Map<String, Map> schema;

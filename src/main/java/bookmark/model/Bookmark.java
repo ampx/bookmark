@@ -6,6 +6,20 @@ import java.util.HashMap;
 
 public class Bookmark {
 
+    public Bookmark() {
+
+    }
+
+    public Bookmark(Time time, HashMap<String, Object> metrics) {
+        this.timestamp = time;
+        this.metrics = metrics;
+    }
+
+    public Bookmark(HashMap<String, Object> metrics) {
+        this.timestamp = Time.now();
+        this.metrics = metrics;
+    }
+
     Time timestamp;
     HashMap<String, Object> metrics;
 

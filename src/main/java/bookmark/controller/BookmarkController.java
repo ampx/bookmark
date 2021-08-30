@@ -14,7 +14,7 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @RestController
 public class BookmarkController {
 
-    @Autowired
+    /*@Autowired
     BookmarksService bookmarkService;
 
     @GetMapping("/bookmarks")
@@ -121,5 +121,5 @@ public class BookmarkController {
         }catch (Exception e) {
             throw new ResponseStatusException(BAD_REQUEST);
         }
-    }
+    }*/
 }

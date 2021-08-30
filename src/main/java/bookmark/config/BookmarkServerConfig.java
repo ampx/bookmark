@@ -1,9 +1,7 @@
 package bookmark.config;
 
-import bookmark.dao.BookmarkClientDao;
 import bookmark.dao.BookmarkDao;
 import bookmark.dao.BookmarkSqliteDao;
-import bookmark.service.BookmarkInstanceService;
 import bookmark.service.BookmarksService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
