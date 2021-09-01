@@ -1,17 +1,18 @@
 package bookmark.dao;
 
-import bookmark.model.*;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
+import bookmark.model.meta.BookmarkMetadata;
+import bookmark.model.meta.BookmarkState;
+import bookmark.model.txn.BookmarkTxns;
+import bookmark.model.txn.TxnQuery;
+import bookmark.model.value.BookmarkValues;
+import bookmark.model.value.ValueQuery;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 import util.time.model.Time;
 
 import javax.naming.ConfigurationException;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 public class BookmarkClientDao implements BookmarkDao{
 
@@ -27,7 +28,7 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean createBookmark(String bookmarkName, Metadata metadata) throws Exception {
+    public Boolean createBookmark(String bookmarkName, BookmarkMetadata bookmarkMetadata) throws Exception {
         return null;
     }
 
@@ -52,7 +53,7 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public List<String> getContextList(String bookmarkName) throws Exception {
+    public Set<String> getContextList(String bookmarkName) throws Exception {
         return null;
     }
 
@@ -92,27 +93,27 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public Metadata getMetadata(String bookmarkName, List<String> options) throws Exception {
+    public BookmarkMetadata getMetadata(String bookmarkName, List<String> options) throws Exception {
         return null;
     }
 
     @Override
-    public Boolean updateMetadata(String bookmarkName, Metadata metadata) throws Exception {
+    public Boolean updateMetadata(String bookmarkName, BookmarkMetadata bookmarkMetadata) throws Exception {
         return null;
     }
 
     @Override
-    public Boolean saveMetadata(String bookmarkName, Metadata metadata) throws Exception {
+    public Boolean saveMetadata(String bookmarkName, BookmarkMetadata bookmarkMetadata) throws Exception {
         return null;
     }
 
     @Override
-    public State getState(String bookmarkName) throws Exception {
+    public BookmarkState getState(String bookmarkName) throws Exception {
         return null;
     }
 
     @Override
-    public Boolean switchState(String bookmarkName, State state) throws Exception {
+    public Boolean switchState(String bookmarkName, BookmarkState state) throws Exception {
         return null;
     }
 

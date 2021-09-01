@@ -1,4 +1,4 @@
-package bookmark.model;
+package bookmark.model.txn;
 
 import util.time.model.Time;
 

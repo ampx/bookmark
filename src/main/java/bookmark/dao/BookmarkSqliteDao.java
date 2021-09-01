@@ -1,9 +1,17 @@
 package bookmark.dao;
 
-import bookmark.model.*;
+import bookmark.model.meta.BookmarkConfig;
+import bookmark.model.meta.BookmarkMetadata;
+import bookmark.model.meta.BookmarkState;
+import bookmark.model.meta.ContextMetadata;
+import bookmark.model.txn.Bookmark;
+import bookmark.model.txn.BookmarkTxns;
+import bookmark.model.txn.TxnQuery;
+import bookmark.model.value.BookmarkValues;
+import bookmark.model.value.ValueQuery;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jdk.internal.org.objectweb.asm.TypeReference;
 import util.time.model.Time;
 
 import javax.naming.ConfigurationException;
@@ -12,10 +20,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class BookmarkSqliteDao implements BookmarkDao{
 
@@ -45,14 +50,14 @@ public class BookmarkSqliteDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean createBookmark(String bookmarkName, Metadata metadata) throws Exception{
+    public Boolean createBookmark(String bookmarkName, BookmarkMetadata bookmarkMetadata) throws Exception{
         //make sure the bookmark name is valid & bookmark does not already exists
         if (!validateBookmarkName(bookmarkName) || bookmarkExists(bookmarkName)) {
             return false;
         }
         //reject bookmark if there is invalid context name in metadata
-        if (metadata.getContextList() != null) {
-            for (String context: metadata.getContextList()) {
+        if (bookmarkMetadata.getContextList() != null) {
+            for (String context: bookmarkMetadata.getContextList()) {
                 if (!validateContextName(context)) {
                     return false;
                 }
@@ -60,21 +65,21 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
         //delete if there are any residue files from corrupted bookmark
         deleteBookmark(bookmarkName);
-        if (metadata == null) {
-            metadata = new Metadata();
+        if (bookmarkMetadata == null) {
+            bookmarkMetadata = new BookmarkMetadata();
         }
-        metadata.setLock(State.notReady);
-        if(createMetaTable(bookmarkName) && saveMetadata(bookmarkName, metadata)
+        bookmarkMetadata.setState(BookmarkState.notReadyState());
+        if(createMetaTable(bookmarkName) && saveBookmarkMeta(bookmarkName, bookmarkMetadata)
                 && createValuesTable(bookmarkName) ) {
             enableWriteAhead(bookmarkName);
-            if (metadata.getContextList() != null) {
-                for (String context: metadata.getContextList()) {
+            if (bookmarkMetadata.getContextList() != null) {
+                for (String context: bookmarkMetadata.getContextList()) {
                     createContext(bookmarkName, context);
                 }
             }
-            Metadata unlock = new Metadata();
-            unlock.setLock(State.unlocked);
-            updateMetadata(bookmarkName, unlock);
+            BookmarkMetadata unlock = new BookmarkMetadata();
+            unlock.setState(BookmarkState.unlockedState());
+            updateBookmarkMeta(bookmarkName, unlock);
             return true;
         }
         return false;
@@ -84,13 +89,11 @@ public class BookmarkSqliteDao implements BookmarkDao{
     public Boolean createContext(String bookmarkName, String context) throws Exception{
         Boolean success = true;
         //register context name in the metadata if it is not already
-        Metadata contextMeta = getMetadata(bookmarkName, new ArrayList(1){{add("contextList");}});
+        BookmarkMetadata contextMeta = getBookmarkMeta(bookmarkName);
         if (!contextMeta.getContextList().contains(context)) {
-            Metadata metadata = new Metadata();
-            List<String> contextList = new ArrayList<>(1);
-            contextList.add(context);
-            metadata.setContextList(contextList);
-            success &= updateMetadata(bookmarkName, metadata);
+            ContextMetadata contextMetadata = new ContextMetadata();
+            contextMetadata.setName(context);
+            success &= updateContextMeta(bookmarkName, contextMetadata);
         }
         //create context transaction table if it does not exist already
         String checkTxnTableSql = "SELECT name FROM sqlite_master WHERE type='table' AND name='" + context + "';";
@@ -111,11 +114,11 @@ public class BookmarkSqliteDao implements BookmarkDao{
     public Boolean bookmarkExists(String bookmarkName) throws Exception{
         //bookmark exists if it has a database created and the lock is not in NotReady state
         if (Files.exists(Paths.get(path + bookmarkName + ".db"))) {
-            String sql = "SELECT name FROM sqlite_master WHERE type='table' AND name='" + metaTable + "';";
+            String sql = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='" + metaTable + "';";
             Integer metaTableCount = (Integer) getElement(bookmarkName, sql);
             if (metaTableCount > 0) {
-                Metadata metadata = getMetadata(bookmarkName, null);
-                if (metadata.getLock() >= 0) {
+                BookmarkState state = getState(bookmarkName);
+                if (state.isReady()) {
                     return true;
                 }
             }
@@ -126,13 +129,12 @@ public class BookmarkSqliteDao implements BookmarkDao{
     @Override
     public Boolean contextExists(String bookmarkName, String context) throws Exception{
         //context exists if context is registered in metadata & value and txn context entries is setup
-        Metadata contextMeta = getMetadata(bookmarkName, new ArrayList(1){{add("contextList");}});
+        ContextMetadata contextMetadata = getContextMeta(bookmarkName, context);
         String checkTxnTableSql = "SELECT name FROM sqlite_master WHERE type='table' AND name='" + context + "';";
         Integer txnTableCount = (Integer) getElement(bookmarkName, checkTxnTableSql);
         String checkValueTableSql = "SELECT count(*) FROM " + valuesTable + " WHERE name='" + context + "';";
         Integer valueEntryCount = (Integer) getElement(bookmarkName, checkValueTableSql);
-        return contextMeta.getContextList().contains(context)
-                && txnTableCount > 0 && valueEntryCount > 0;
+        return contextMetadata != null && txnTableCount > 0 && valueEntryCount > 0;
     }
 
     @Override
@@ -149,9 +151,9 @@ public class BookmarkSqliteDao implements BookmarkDao{
     }
 
     @Override
-    public List<String> getContextList(String bookmarkName) throws Exception{
-        Metadata contextMeta = getMetadata(bookmarkName, new ArrayList(1){{add("contextList");}});
-        return contextMeta.getContextList();
+    public Set<String> getContextList(String bookmarkName) throws Exception{
+        BookmarkMetadata bookmarkMetadata = getBookmarkMeta(bookmarkName);
+        return bookmarkMetadata.getContextList();
     }
 
     @Override
@@ -400,15 +402,9 @@ public class BookmarkSqliteDao implements BookmarkDao{
     }
 
     @Override
-    public Metadata getMetadata(String bookmarkName, List<String> options)  throws Exception{
-        String sql = "SELECT ";
-        if (options != null && options.size() > 0) {
-            sql += String.join(",", options);
-        } else {
-            sql += "*";
-        }
-        sql += " FROM " + metaTable;
-        Metadata metadata = null;
+    public BookmarkMetadata getBookmarkMeta(String bookmarkName)  throws Exception{
+        String sql = "SELECT * FROM " + metaTable;
+        BookmarkMetadata bookmarkMetadata = null;
         Statement stmt = null;
         Connection conn = null;
         try {
@@ -425,25 +421,23 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
         try {
             ResultSet rs = stmt.executeQuery(sql);
-            metadata = new Metadata();
+            bookmarkMetadata = new BookmarkMetadata();
             while (rs.next()) {
                 String name = rs.getString("name");
                 if ("config".equals(name)) {
                     String data = rs.getString("data");
-                    metadata.setConfig(new ObjectMapper().readValue(data, HashMap.class));
+                    bookmarkMetadata.setConfig(new ObjectMapper().readValue(data, BookmarkConfig.class));
                 } else if ("lock".equals(name)) {
-                    metadata.setLock(rs.getInt("data"));
-                } else if ("schemas".equals(name)) {
+                    bookmarkMetadata.setState(new BookmarkState(rs.getInt("data")));
+                } else if ("context".equals(name)) {
                     String data = rs.getString("data");
-                    metadata.setSchema(new ObjectMapper().readValue(data, HashMap.class));
-                } else if ("contextList".equals(name)) {
-                    String data = rs.getString("data");
-                    metadata.setContextList(new ObjectMapper().readValue(data, List.class));
+                    bookmarkMetadata.setContextMetadata(mapper.readValue(
+                            data, mapper.getTypeFactory().constructMapType(HashMap.class, String.class, ContextMetadata.class)));
                 }
             }
             stmt.close();
             conn.close();
-            return metadata;
+            return bookmarkMetadata;
         } catch (Exception e) {
             try {stmt.close();} catch (Exception ex) {}
             try {conn.close();} catch (Exception ex) {}
@@ -452,57 +446,69 @@ public class BookmarkSqliteDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean updateMetadata(String bookmarkName, Metadata metadata) throws Exception {
+    public Boolean updateBookmarkMeta(String bookmarkName, BookmarkMetadata bookmarkMetadata) throws Exception {
         String sql = "";
-        if (metadata.getConfig() != null) {
-            String configStr = mapper.writeValueAsString(metadata.getConfig());
+        if (bookmarkMetadata.getConfig() != null) {
+            String configStr = mapper.writeValueAsString(bookmarkMetadata.getConfig());
             sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('config',json('" + configStr + "'))" +
                     " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, ?)";
         }
-        if (metadata.getLock() != null) {
-            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('lock'," + metadata.getLock() + ")" +
-                    " ON CONFLICT(name) DO UPDATE SET data=" + metadata.getLock();
+        if (bookmarkMetadata.getState() != null) {
+            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('lock'," + bookmarkMetadata.getState()+ ")" +
+                    " ON CONFLICT(name) DO UPDATE SET data=" + bookmarkMetadata.getState();
         }
-        if (metadata.getSchema() != null) {
-            String schemasStr = mapper.writeValueAsString(metadata.getSchema());
-            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('schemas',json('" + schemasStr + "'))" +
+        if (bookmarkMetadata.getContextMetadata() != null) {
+            String schemasStr = mapper.writeValueAsString(bookmarkMetadata.getContextMetadata());
+            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('context',json('" + schemasStr + "'))" +
                     " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, ?)";
-        }
-        if (metadata.getContextList() != null) {
-            String contextListStr = mapper.writeValueAsString(metadata.getContextList());
-            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('contextList',json('" + metadata.getContextList() + "'))" +
-                    " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, [" + contextListStr + "])";
         }
         return executeStatement(bookmarkName, sql);
     }
 
     @Override
-    public Boolean saveMetadata(String bookmarkName, Metadata metadata) throws Exception{
+    public Boolean saveBookmarkMeta(String bookmarkName, BookmarkMetadata bookmarkMetadata) throws Exception{
         String sql = "";
-        if (metadata.getConfig() != null) {
-            String configStr = mapper.writeValueAsString(metadata.getConfig());
+        if (bookmarkMetadata.getConfig() != null) {
+            String configStr = mapper.writeValueAsString(bookmarkMetadata.getConfig());
             sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('config',json('"+ configStr +"'));";
         }
-        if (metadata.getLock() != null) {
-            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('lock',"+ metadata.getLock() +");";
+        if (bookmarkMetadata.getState() != null) {
+            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('lock',"+ bookmarkMetadata.getState() +");";
         }
-        if (metadata.getSchema() != null) {
-            String schemasStr = mapper.writeValueAsString(metadata.getSchema());
-            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('schemas',json('"+ schemasStr +"'));";
-        }
-        if (metadata.getContextList() != null) {
-            String contextListStr = mapper.writeValueAsString(metadata.getContextList());
-            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('contextList',json('"+ contextListStr +"'));";
+        if (bookmarkMetadata.getContextMetadata() != null) {
+            String schemasStr = mapper.writeValueAsString(bookmarkMetadata.getContextMetadata());
+            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('context',json('"+ schemasStr +"'));";
         }
         return executeStatement(bookmarkName, sql);
     }
 
-    public State getState(String bookmarkName) throws Exception {
-        String sql = "SELECT data FROM " + metaTable + " WHERE name='lock'";
-        return new State((Integer)getElement(bookmarkName, sql));
+    @Override
+    public ContextMetadata getContextMeta(String bookmarkName, String context) throws Exception {
+        String sql = "SELECT json_extract(data,'$." + context + "') FROM " + metaTable + " WHERE name='context'";
+        return mapper.readValue((String)getElement(bookmarkName, sql), ContextMetadata.class);
     }
 
-    public Boolean switchState(String bookmarkName, State state) throws Exception {
+    public Boolean updateContextMeta(String bookmarkName, ContextMetadata meta) throws Exception {
+        String sql = "";
+        String schemasStr = mapper.writeValueAsString(meta);
+        sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('context',json('" + schemasStr + "'))" +
+                " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, json(" + schemasStr +"))";
+        return executeStatement(bookmarkName, sql);
+    }
+
+    public Boolean saveContextMeta(String bookmarkName, ContextMetadata meta) throws Exception {
+        String sql = "";
+        String schemasStr = mapper.writeValueAsString(meta);
+        sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('context',json('"+ schemasStr +"'));";
+        return executeStatement(bookmarkName, sql);
+    }
+
+    public BookmarkState getState(String bookmarkName) throws Exception {
+        String sql = "SELECT data FROM " + metaTable + " WHERE name='lock'";
+        return new BookmarkState((Integer)getElement(bookmarkName, sql));
+    }
+
+    public Boolean switchState(String bookmarkName, BookmarkState state) throws Exception {
         Statement stmt = null;
         Connection conn = createConnection(bookmarkName);
         try {

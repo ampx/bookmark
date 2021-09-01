@@ -2,7 +2,7 @@ package bookmark.config;
 
 import bookmark.dao.BookmarkDao;
 import bookmark.dao.BookmarkSqliteDao;
-import bookmark.service.BookmarksService;
+import bookmark.service.bookmark.BookmarksService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

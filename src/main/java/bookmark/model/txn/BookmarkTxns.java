@@ -1,4 +1,4 @@
-package bookmark.model;
+package bookmark.model.txn;
 
 import java.util.ArrayList;
 import java.util.List;

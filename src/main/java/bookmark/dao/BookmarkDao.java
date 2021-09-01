@@ -1,16 +1,20 @@
 package bookmark.dao;
 
-import bookmark.model.*;
+import bookmark.model.meta.BookmarkMetadata;
+import bookmark.model.meta.BookmarkState;
+import bookmark.model.meta.ContextMetadata;
+import bookmark.model.txn.BookmarkTxns;
+import bookmark.model.txn.TxnQuery;
+import bookmark.model.value.BookmarkValues;
+import bookmark.model.value.ValueQuery;
 import util.time.model.Time;
 
-import javax.naming.ConfigurationException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 public interface BookmarkDao {
 
-    public Boolean createBookmark(String bookmarkName, Metadata metadata) throws Exception;
+    public Boolean createBookmark(String bookmarkName, BookmarkMetadata bookmarkMetadata) throws Exception;
 
     public Boolean createContext(String bookmarkName, String context) throws Exception;
 
@@ -20,7 +24,7 @@ public interface BookmarkDao {
 
     public List<String> getBookmarkList();
 
-    public List<String> getContextList(String bookmarkName) throws Exception;
+    public Set<String> getContextList(String bookmarkName) throws Exception;
 
     public Boolean saveBookmarkTxn(String bookmarkName, BookmarkTxns txns) throws Exception;
 
@@ -36,15 +40,21 @@ public interface BookmarkDao {
 
     public Boolean cleanTxnRecords(String bookmarkName, String context, Time cutoffTime) throws Exception;
 
-    public Metadata getMetadata(String bookmarkName, List<String> options) throws Exception;
+    public BookmarkMetadata getBookmarkMeta(String bookmarkName) throws Exception;
 
-    public Boolean updateMetadata(String bookmarkName, Metadata metadata) throws Exception;
+    public Boolean updateBookmarkMeta(String bookmarkName, BookmarkMetadata meta) throws Exception;
 
-    public Boolean saveMetadata(String bookmarkName, Metadata metadata) throws Exception;
+    public Boolean saveBookmarkMeta(String bookmarkName, BookmarkMetadata meta) throws Exception;
 
-    public State getState(String bookmarkName) throws Exception;
+    public ContextMetadata getContextMeta(String bookmarkName, String context) throws Exception;
 
-    public Boolean switchState(String bookmarkName, State state) throws Exception;
+    public Boolean updateContextMeta(String bookmarkName, ContextMetadata meta) throws Exception;
+
+    public Boolean saveContextMeta(String bookmarkName, ContextMetadata meta) throws Exception;
+
+    public BookmarkState getState(String bookmarkName) throws Exception;
+
+    public Boolean switchState(String bookmarkName, BookmarkState state) throws Exception;
 
     public Boolean maintenance() throws Exception;
 

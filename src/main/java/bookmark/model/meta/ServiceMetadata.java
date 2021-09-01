@@ -1,4 +1,4 @@
-package bookmark.model;
+package bookmark.model.meta;
 
 import java.util.List;
 

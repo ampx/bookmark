@@ -1,6 +1,6 @@
 package util.table.logic;
 
-import bookmark.model.Bookmark;
+import bookmark.model.txn.Bookmark;
 import util.table.model.Table;
 
 import java.util.ArrayList;

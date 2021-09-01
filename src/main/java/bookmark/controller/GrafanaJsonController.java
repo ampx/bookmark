@@ -1,12 +1,9 @@
 package bookmark.controller;
 
-import bookmark.model.Bookmark;
-import bookmark.service.BookmarksService;
+import bookmark.service.bookmark.BookmarksService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import util.table.logic.GrafanaDTO;
-import util.table.model.Table;
 
 import java.util.*;
 

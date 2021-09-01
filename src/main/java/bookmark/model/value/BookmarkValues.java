@@ -1,4 +1,4 @@
-package bookmark.model;
+package bookmark.model.value;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -1,15 +1,6 @@
 package bookmark.controller;
 
-import bookmark.model.Bookmark;
-import bookmark.service.BookmarksService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
-
-import java.util.*;
-
-import static org.springframework.http.HttpStatus.BAD_REQUEST;
-import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @RestController
 public class BookmarkController {

@@ -1,4 +1,4 @@
-package bookmark.service;
+package bookmark.service.bookmark;
 
 public class ContextService {
 
