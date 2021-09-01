@@ -458,7 +458,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
                     " ON CONFLICT(name) DO UPDATE SET data=" + bookmarkMetadata.getState();
         }
         if (bookmarkMetadata.getContextMetadata() != null) {
-            String schemasStr = mapper.writeValueAsString(bookmarkMetadata.getContextMetadata());
+            String schemasStr = mapper.writeValueAsString(bookmarkMetadata.getContextMap());
             sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('context',json('" + schemasStr + "'))" +
                     " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, ?)";
         }
@@ -476,7 +476,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
             sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('lock',"+ bookmarkMetadata.getState() +");";
         }
         if (bookmarkMetadata.getContextMetadata() != null) {
-            String schemasStr = mapper.writeValueAsString(bookmarkMetadata.getContextMetadata());
+            String schemasStr = mapper.writeValueAsString(bookmarkMetadata.getContextMap());
             sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('context',json('"+ schemasStr +"'));";
         }
         return executeStatement(bookmarkName, sql);
@@ -490,15 +490,16 @@ public class BookmarkSqliteDao implements BookmarkDao{
 
     public Boolean updateContextMeta(String bookmarkName, ContextMetadata meta) throws Exception {
         String sql = "";
-        String schemasStr = mapper.writeValueAsString(meta);
+        String schemasStr = "{'" + meta.getName() + "':" + mapper.writeValueAsString(meta) + "}";
         sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('context',json('" + schemasStr + "'))" +
-                " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, json(" + schemasStr +"))";
+                " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, " +
+                "json(" +  schemasStr + "))";
         return executeStatement(bookmarkName, sql);
     }
 
     public Boolean saveContextMeta(String bookmarkName, ContextMetadata meta) throws Exception {
         String sql = "";
-        String schemasStr = mapper.writeValueAsString(meta);
+        String schemasStr = "{'" + meta.getName() + "':" + mapper.writeValueAsString(meta) + "}";
         sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('context',json('"+ schemasStr +"'));";
         return executeStatement(bookmarkName, sql);
     }

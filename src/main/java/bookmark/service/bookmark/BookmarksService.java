@@ -1,6 +1,7 @@
 package bookmark.service.bookmark;
 
 import bookmark.dao.BookmarkDao;
+import bookmark.model.meta.BookmarkConfig;
 import bookmark.model.meta.BookmarkMetadata;
 import bookmark.model.meta.BookmarkState;
 import bookmark.model.meta.ContextMetadata;
@@ -74,7 +75,7 @@ public class BookmarksService {
         }
     }
 
-    public List<String> getContextList(String bookmarkName)
+    public Set<String> getContextList(String bookmarkName)
     {
         try {
             return bookmarkDao.getContextList(bookmarkName);
@@ -83,9 +84,9 @@ public class BookmarksService {
         }
     }
 
-    public List<String> contextExists(String bookmarkName, String context) {
+    public Boolean contextExists(String bookmarkName, String context) {
         try{
-            return bookmarkDao.getContextList(bookmarkName);
+            return bookmarkDao.contextExists(bookmarkName, context);
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid Request");
         }
@@ -93,11 +94,11 @@ public class BookmarksService {
 
     public Boolean updateBookmarkMetadata(String bookmarkName, BookmarkMetadata bookmarkMetadata) {
         try {
-            return bookmarkDao.updateMetadata(bookmarkName, bookmarkMetadata);
+            return bookmarkDao.updateBookmarkMeta(bookmarkName, bookmarkMetadata);
         } catch (Exception e) {
             try {
                 return validateBookmarkSetup(bookmarkName, getDefaultMeta()) &&
-                        bookmarkDao.updateMetadata(bookmarkName, bookmarkMetadata);
+                        bookmarkDao.updateBookmarkMeta(bookmarkName, bookmarkMetadata);
             } catch (Exception ex) {
                 throw new IllegalArgumentException("Invalid Request");
             }
@@ -106,20 +107,20 @@ public class BookmarksService {
 
     public Boolean saveBookmarkMetadata(String bookmarkName, BookmarkMetadata bookmarkMetadata) {
         try {
-            return bookmarkDao.saveMetadata(bookmarkName, bookmarkMetadata);
+            return bookmarkDao.saveBookmarkMeta(bookmarkName, bookmarkMetadata);
         } catch (Exception e) {
             try {
                 return validateBookmarkSetup(bookmarkName, getDefaultMeta()) &&
-                        bookmarkDao.saveMetadata(bookmarkName, bookmarkMetadata);
+                        bookmarkDao.saveBookmarkMeta(bookmarkName, bookmarkMetadata);
             } catch (Exception ex) {
                 throw new IllegalArgumentException("Invalid Request");
             }
         }
     }
 
-    public BookmarkMetadata getBookmarkMetadata(String bookmarkName, List<String> query) {
+    public BookmarkMetadata getBookmarkMetadata(String bookmarkName) {
         try {
-            return bookmarkDao.getMetadata(bookmarkName, query);
+            return bookmarkDao.getBookmarkMeta(bookmarkName);
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid Request");
         }
@@ -244,21 +245,26 @@ public class BookmarksService {
 
     private class BookmarkCleanup extends TimerTask {
         public void run(){
-            Time cutofftimeDefault = (new Time()).addDays(-1 * defaultRetentionDays);
-            Time cutofftime;
+            Time cutOffTime = null;
             List<String> bookmarkList = bookmarkDao.getBookmarkList();
             List<String> configQuery = new ArrayList(1){{add("config");}};
             for (String bookmarkName : bookmarkList) {
                 try {
-                    BookmarkMetadata bookmarkMetadata = bookmarkDao.getMetadata(bookmarkName, configQuery);
-                    if (bookmarkMetadata != null && bookmarkMetadata.getConfig() != null && bookmarkMetadata.getConfig().containsKey("retentionDays")) {
-                        try {
-                            cutofftime = (new Time()).addDays(-1L * Long.valueOf((Integer) bookmarkMetadata.getConfig().get("retentionDays")));
-                        } catch (Exception e) {
-                            cutofftime = cutofftimeDefault;
+                    BookmarkMetadata bookmarkMetadata = bookmarkDao.getBookmarkMeta(bookmarkName);
+                    if (bookmarkMetadata != null) {
+                        BookmarkConfig config = bookmarkMetadata.getConfig();
+                        if (config.defaultRetentionPolicy()) {
+                            cutOffTime = (new Time()).addDays(-1 * defaultRetentionDays);
+                        } else if (!config.isTtlDisabled()) {
+                            cutOffTime = (new Time()).addDays(-1 * config.getTxnRetentionPolicy());
                         }
-                    } else cutofftime = cutofftimeDefault;
-                    bookmarkDao.cleanTxnRecords(bookmarkName, null, cutofftime);
+                    }
+                    Set<String> contextList = bookmarkMetadata.getContextList();
+                    if (contextList != null) {
+                        for (String context: contextList) {
+                            bookmarkDao.cleanTxnRecords(bookmarkName, context, cutOffTime);
+                        }
+                    }
                 } catch (Exception e) {}
             }
         }
@@ -296,13 +302,12 @@ public class BookmarksService {
     private Boolean validateTxnContextSetup(String bookmarkName, String context, BookmarkTxns txn) throws Exception{
         Boolean success = true;
         if (context!= null && !bookmarkDao.contextExists(bookmarkName, context)) {
-            BookmarkMetadata bookmarkMetadata = bookmarkDao.getMetadata(bookmarkName, null);
-            if (bookmarkMetadata.getContextMetadata() == null || bookmarkMetadata.getSchemas().get(context) == null) {
-                BookmarkMetadata schema = new BookmarkMetadata();
-                TxnSchemas schemas = new TxnSchemas();
-                schemas.addSchema(context, inferSchema(txn));
-                schema.setSchemas(schemas);
-                bookmarkDao.updateMetadata(bookmarkName, schema);
+            BookmarkMetadata bookmarkMetadata = bookmarkDao.getBookmarkMeta(bookmarkName);
+            if (bookmarkMetadata.getContextMetadata() == null || bookmarkMetadata.getContextMetadata(context) == null) {
+                ContextMetadata metadata = new ContextMetadata();
+                metadata.setName(context);
+                inferSchema(txn, metadata);
+                bookmarkDao.updateContextMeta(bookmarkName, metadata);
             }
             success &= bookmarkDao.createContext(bookmarkName, context);
         }
@@ -333,7 +338,9 @@ public class BookmarksService {
 
     public BookmarkMetadata getDefaultMeta() {
         BookmarkMetadata bookmarkMetadata = new BookmarkMetadata();
-        bookmarkMetadata.setTxnRetentionDays(defaultRetentionDays);
+        BookmarkConfig config = new BookmarkConfig();
+        config.setTxnRetentionPolicy(defaultRetentionDays);
+        bookmarkMetadata.setConfig(config);
         return bookmarkMetadata;
     }
 }

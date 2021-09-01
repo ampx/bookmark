@@ -1,9 +1,6 @@
 package bookmark.model.meta;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class BookmarkMetadata {
     public BookmarkConfig getConfig() {
@@ -32,6 +29,10 @@ public class BookmarkMetadata {
 
     public Collection<ContextMetadata> getContextMetadata() {
         return contextMetadata.values();
+    }
+
+    public Map<String, ContextMetadata> getContextMap() {
+        return contextMetadata;
     }
 
     public void addContextMetadata(ContextMetadata metadata) {
