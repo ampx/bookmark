@@ -2,6 +2,7 @@ package bookmark.dao;
 
 import bookmark.model.meta.BookmarkMetadata;
 import bookmark.model.meta.BookmarkState;
+import bookmark.model.meta.ContextMetadata;
 import bookmark.model.txn.BookmarkTxns;
 import bookmark.model.txn.TxnQuery;
 import bookmark.model.value.BookmarkValues;
@@ -93,17 +94,32 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public BookmarkMetadata getMetadata(String bookmarkName, List<String> options) throws Exception {
+    public BookmarkMetadata getBookmarkMeta(String bookmarkName) throws Exception {
         return null;
     }
 
     @Override
-    public Boolean updateMetadata(String bookmarkName, BookmarkMetadata bookmarkMetadata) throws Exception {
+    public Boolean updateBookmarkMeta(String bookmarkName, BookmarkMetadata meta) throws Exception {
         return null;
     }
 
     @Override
-    public Boolean saveMetadata(String bookmarkName, BookmarkMetadata bookmarkMetadata) throws Exception {
+    public Boolean saveBookmarkMeta(String bookmarkName, BookmarkMetadata meta) throws Exception {
+        return null;
+    }
+
+    @Override
+    public ContextMetadata getContextMeta(String bookmarkName, String context) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean updateContextMeta(String bookmarkName, ContextMetadata meta) throws Exception {
+        return null;
+    }
+
+    @Override
+    public Boolean saveContextMeta(String bookmarkName, ContextMetadata meta) throws Exception {
         return null;
     }
 
@@ -141,6 +157,8 @@ public class BookmarkClientDao implements BookmarkDao{
     public Boolean deleteBookmark(String bookmarkName) {
         return null;
     }
+
+
 /*
     @Override
     public Boolean bookmarkExists(String bookmarkName) {

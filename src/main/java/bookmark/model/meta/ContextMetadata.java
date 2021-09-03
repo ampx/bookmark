@@ -15,23 +15,23 @@ public class ContextMetadata {
         this.name = name;
     }
 
-    public void addIntField(String fieldName) {
+    public void addIntTxnField(String fieldName) {
         schema.put(fieldName, Types.INT);
     }
 
-    public void addFloatField(String fieldName) {
+    public void addFloatTxnField(String fieldName) {
         schema.put(fieldName, Types.FLOAT);
     }
 
-    public void addBoolField(String fieldName) {
+    public void addBoolTxnField(String fieldName) {
         schema.put(fieldName, Types.BOOL);
     }
 
-    public void addStringField(String fieldName) {
+    public void addStringTxnField(String fieldName) {
         schema.put(fieldName, Types.STRING);
     }
 
-    public void addFieldField(String fieldName, Types type) {
+    public void addTxnField(String fieldName, Types type) {
         schema.put(fieldName, type);
     }
 

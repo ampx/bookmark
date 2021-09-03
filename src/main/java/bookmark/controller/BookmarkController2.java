@@ -12,7 +12,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 
@@ -30,9 +32,9 @@ public class BookmarkController2 {
 
     //check bookmark exists
     @GetMapping("/bookmark/{bookmark-name}")
-    public Boolean bookmarkExists(@PathVariable String bookmarkName, @RequestParam List<String> items)
+    public Map<String, Boolean> bookmarkExists(@PathVariable String bookmarkName)
     {
-        return bookmarkService.bookmarkExists(bookmarkName);
+        return Collections.singletonMap("success", bookmarkService.bookmarkExists(bookmarkName));
     }
 
     //create bookmark
@@ -40,11 +42,7 @@ public class BookmarkController2 {
     public ResponseEntity<?> createBookmarkUpdateMeta(@PathVariable String bookmarkName,
                                                 @RequestBody BookmarkMetadata bookmarkMetadata) {
         try {
-            if (!bookmarkService.bookmarkExists(bookmarkName) ) {
-                if (bookmarkService.createBookmark(bookmarkName, bookmarkMetadata)) {
-                    return successResp;
-                }
-            } else if(bookmarkService.updateBookmarkMetadata(bookmarkName, bookmarkMetadata)){
+            if(bookmarkService.updateBookmarkMetadata(bookmarkName, bookmarkMetadata)){
                 return successResp;
             }
         } catch (Exception e) {}
@@ -56,22 +54,18 @@ public class BookmarkController2 {
     public ResponseEntity<?> createBookmarkOverwriteMeta(@PathVariable String bookmarkName,
                                               @RequestBody BookmarkMetadata bookmarkMetadata) {
         try {
-            if (!bookmarkService.bookmarkExists(bookmarkName) ) {
-                if (bookmarkService.createBookmark(bookmarkName, bookmarkMetadata)) {
-                    return successResp;
-                }
-            } else if(bookmarkService.saveBookmarkMetadata(bookmarkName, bookmarkMetadata)){
+            if(bookmarkService.saveBookmarkMetadata(bookmarkName, bookmarkMetadata)){
                 return successResp;
             }
         } catch (Exception e) {}
         return badReqResp;
     }
 
-    //get bookmark meta/ check bookmark exists
+    //get bookmark meta
     @GetMapping("/bookmark/{bookmark-name}/meta")
-    public BookmarkMetadata getBookmarkMeta(@PathVariable String bookmarkName, @RequestParam List<String> items)
+    public BookmarkMetadata getBookmarkMeta(@PathVariable String bookmarkName)
     {
-        return bookmarkService.getBookmarkMetadata(bookmarkName, items);
+        return bookmarkService.getBookmarkMetadata(bookmarkName);
     }
 
     //update bookmark config
@@ -163,16 +157,6 @@ public class BookmarkController2 {
     {
         return bookmarkService.getState(bookmarkName);
     }
-
-    /*@PostMapping("/bookmark/{bookmarkName}/state")
-    public ResponseEntity<?> saveStateValues(@PathVariable String bookmarkName, @RequestBody State state) {
-        try {
-            if (bookmarkService.updateState(bookmarkName, state)) {
-                return successResp;
-            }
-        } catch (Exception e) {}
-        return badReqResp;
-    }*/
 
     @PutMapping("/bookmark/{bookmarkName}/state")
     public ResponseEntity<?> updateStateValues(@PathVariable String bookmarkName, @RequestBody BookmarkState state) {

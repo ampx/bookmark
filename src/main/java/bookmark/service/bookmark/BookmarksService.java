@@ -277,13 +277,13 @@ public class BookmarksService {
                 for (String key : metrics.keySet()) {
                     if (metrics.get(key) != null) {
                         if (metrics.get(key) instanceof Long || metrics.get(key) instanceof Integer) {
-                            contextMeta.addIntField(key);
+                            contextMeta.addIntTxnField(key);
                         } else if (metrics.get(key) instanceof Double || metrics.get(key) instanceof Float) {
-                            contextMeta.addFloatField(key);
+                            contextMeta.addFloatTxnField(key);
                         } else if (metrics.get(key) instanceof Boolean) {
-                            contextMeta.addBoolField(key);
+                            contextMeta.addBoolTxnField(key);
                         } else {
-                            contextMeta.addStringField(key);
+                            contextMeta.addStringTxnField(key);
                         }
                     }
                 }
