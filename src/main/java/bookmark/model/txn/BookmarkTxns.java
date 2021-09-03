@@ -24,6 +24,6 @@ public class BookmarkTxns {
         bookmarks.add(bookmark);
     }
 
-    String context;
+    String context = "default";
     List<Bookmark> bookmarks = new ArrayList<>(10);
 }

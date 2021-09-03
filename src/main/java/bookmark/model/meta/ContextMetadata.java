@@ -1,11 +1,12 @@
 package bookmark.model.meta;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
 public class ContextMetadata {
-    String name;
-    Map<String, Types> schema;
+    String name = "default";
+    Map<String, Types> schema = new HashMap<>();
 
     public String getName() {
         return name;

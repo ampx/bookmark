@@ -9,6 +9,7 @@ import bookmark.model.txn.BookmarkTxns;
 import bookmark.model.txn.TxnQuery;
 import bookmark.model.value.BookmarkValues;
 import bookmark.model.value.ValueQuery;
+import ch.qos.logback.core.encoder.EchoEncoder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jdk.internal.org.objectweb.asm.TypeReference;
@@ -56,7 +57,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
             return false;
         }
         //reject bookmark if there is invalid context name in metadata
-        if (bookmarkMetadata.getContextList() != null) {
+        if (bookmarkMetadata.getContextMap() != null) {
             for (String context: bookmarkMetadata.getContextList()) {
                 if (!validateContextName(context)) {
                     return false;
@@ -72,7 +73,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
         if(createMetaTable(bookmarkName) && saveBookmarkMeta(bookmarkName, bookmarkMetadata)
                 && createValuesTable(bookmarkName) ) {
             enableWriteAhead(bookmarkName);
-            if (bookmarkMetadata.getContextList() != null) {
+            if (bookmarkMetadata.getContextMap() != null) {
                 for (String context: bookmarkMetadata.getContextList()) {
                     createContext(bookmarkName, context);
                 }
@@ -457,7 +458,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
             sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('lock'," + bookmarkMetadata.getState()+ ")" +
                     " ON CONFLICT(name) DO UPDATE SET data=" + bookmarkMetadata.getState();
         }
-        if (bookmarkMetadata.getContextMetadata() != null) {
+        if (bookmarkMetadata.getContextMap() != null) {
             String schemasStr = mapper.writeValueAsString(bookmarkMetadata.getContextMap());
             sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('context',json('" + schemasStr + "'))" +
                     " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, ?)";
@@ -475,7 +476,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
         if (bookmarkMetadata.getState() != null) {
             sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('lock',"+ bookmarkMetadata.getState() +");";
         }
-        if (bookmarkMetadata.getContextMetadata() != null) {
+        if (bookmarkMetadata.getContextMap() != null) {
             String schemasStr = mapper.writeValueAsString(bookmarkMetadata.getContextMap());
             sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('context',json('"+ schemasStr +"'));";
         }
@@ -485,21 +486,25 @@ public class BookmarkSqliteDao implements BookmarkDao{
     @Override
     public ContextMetadata getContextMeta(String bookmarkName, String context) throws Exception {
         String sql = "SELECT json_extract(data,'$." + context + "') FROM " + metaTable + " WHERE name='context'";
-        return mapper.readValue((String)getElement(bookmarkName, sql), ContextMetadata.class);
+        String contextMetaStr = (String)getElement(bookmarkName, sql);
+        if (contextMetaStr != null) {
+            return mapper.readValue(contextMetaStr, ContextMetadata.class);
+        }
+        return null;
     }
 
     public Boolean updateContextMeta(String bookmarkName, ContextMetadata meta) throws Exception {
         String sql = "";
-        String schemasStr = "{'" + meta.getName() + "':" + mapper.writeValueAsString(meta) + "}";
+        String schemasStr = "{\"" + meta.getName() + "\":" + mapper.writeValueAsString(meta) + "}";
         sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('context',json('" + schemasStr + "'))" +
                 " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, " +
-                "json(" +  schemasStr + "))";
+                "json('" +  schemasStr + "'))";
         return executeStatement(bookmarkName, sql);
     }
 
     public Boolean saveContextMeta(String bookmarkName, ContextMetadata meta) throws Exception {
         String sql = "";
-        String schemasStr = "{'" + meta.getName() + "':" + mapper.writeValueAsString(meta) + "}";
+        String schemasStr = "{\"" + meta.getName() + "\":" + mapper.writeValueAsString(meta) + "}";
         sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('context',json('"+ schemasStr +"'));";
         return executeStatement(bookmarkName, sql);
     }
@@ -621,22 +626,17 @@ public class BookmarkSqliteDao implements BookmarkDao{
         try {
             String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
             conn = DriverManager.getConnection(url);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-            return null;
-        }
-        try {
             stmt = conn.createStatement();
             stmt.setQueryTimeout(timeoutMillis);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-            return null;
+            stmt.executeUpdate(sql);
+            stmt.close();
+            conn.close();
+            return true;
+        } catch (Exception e) {
+            try {stmt.close();} catch (Exception ex) {}
+            try {conn.close();} catch (Exception ex) {}
+            throw e;
         }
-
-        stmt.executeUpdate(sql);
-        stmt.close();
-        conn.close();
-        return true;
     }
 
     private Object enableWriteAhead(String bookmarkName) throws Exception{
@@ -725,13 +725,13 @@ public class BookmarkSqliteDao implements BookmarkDao{
         String sql = "CREATE TABLE " + metaTable + " ( " +
                 "name string PRIMARY KEY NOT NULL, " +
                 "data json NOT NULL" +
-                ")";
+                ");";
 
         sql += "INSERT INTO " + metaTable + " (name, data) " + " VALUES ('config',json('{}'));";
 
         sql += "INSERT INTO " + metaTable + " (name, data) " + " VALUES ('lock',-1);";
         sql += "INSERT INTO " + metaTable + " (name, data)  VALUES ('schemas',json('{}'));";
-        sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('contextList',json('{}'))";
+        sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('contextList',json('{}'));";
         try {
             return executeStatement(bookmarkName, sql);
         } catch (Exception throwables) {

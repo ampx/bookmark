@@ -255,7 +255,7 @@ public class BookmarksService {
                         BookmarkConfig config = bookmarkMetadata.getConfig();
                         if (config.defaultRetentionPolicy()) {
                             cutOffTime = (new Time()).addDays(-1 * defaultRetentionDays);
-                        } else if (!config.isTtlDisabled()) {
+                        } else if (!config.ttlDisabled()) {
                             cutOffTime = (new Time()).addDays(-1 * config.getTxnRetentionPolicy());
                         }
                     }
@@ -303,7 +303,7 @@ public class BookmarksService {
         Boolean success = true;
         if (context!= null && !bookmarkDao.contextExists(bookmarkName, context)) {
             BookmarkMetadata bookmarkMetadata = bookmarkDao.getBookmarkMeta(bookmarkName);
-            if (bookmarkMetadata.getContextMetadata() == null || bookmarkMetadata.getContextMetadata(context) == null) {
+            if (bookmarkMetadata.getContextMap() == null || bookmarkMetadata.getContextMetadata(context) == null) {
                 ContextMetadata metadata = new ContextMetadata();
                 metadata.setName(context);
                 inferSchema(txn, metadata);

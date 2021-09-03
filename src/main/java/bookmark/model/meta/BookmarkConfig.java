@@ -9,7 +9,7 @@ public class BookmarkConfig {
         return false;
     }
 
-    public boolean isTtlDisabled() {
+    public boolean ttlDisabled() {
         if (txnRetentionPolicy < 0) {
             return true;
         }
