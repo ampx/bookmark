@@ -97,7 +97,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
             success &= updateContextMeta(bookmarkName, contextMetadata);
         }
         //create context transaction table if it does not exist already
-        String checkTxnTableSql = "SELECT name FROM sqlite_master WHERE type='table' AND name='" + context + "';";
+        String checkTxnTableSql = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='" + context + "';";
         Integer txnTableCount = (Integer) getElement(bookmarkName, checkTxnTableSql);
         if (txnTableCount < 1) {
             success &= createTxnTable(bookmarkName, context);
@@ -430,7 +430,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
                     bookmarkMetadata.setConfig(new ObjectMapper().readValue(data, BookmarkConfig.class));
                 } else if ("lock".equals(name)) {
                     bookmarkMetadata.setState(new BookmarkState(rs.getInt("data")));
-                } else if ("context".equals(name)) {
+                } else if ("contextMetadata".equals(name)) {
                     String data = rs.getString("data");
                     bookmarkMetadata.setContextMetadata(mapper.readValue(
                             data, mapper.getTypeFactory().constructMapType(HashMap.class, String.class, ContextMetadata.class)));
@@ -460,7 +460,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
         if (bookmarkMetadata.getContextMap() != null) {
             String schemasStr = mapper.writeValueAsString(bookmarkMetadata.getContextMap());
-            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('context',json('" + schemasStr + "'))" +
+            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('contextMetadata',json('" + schemasStr + "'))" +
                     " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, ?)";
         }
         return executeStatement(bookmarkName, sql);
@@ -478,14 +478,14 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
         if (bookmarkMetadata.getContextMap() != null) {
             String schemasStr = mapper.writeValueAsString(bookmarkMetadata.getContextMap());
-            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('context',json('"+ schemasStr +"'));";
+            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('contextMetadata',json('"+ schemasStr +"'));";
         }
         return executeStatement(bookmarkName, sql);
     }
 
     @Override
     public ContextMetadata getContextMeta(String bookmarkName, String context) throws Exception {
-        String sql = "SELECT json_extract(data,'$." + context + "') FROM " + metaTable + " WHERE name='context'";
+        String sql = "SELECT json_extract(data,'$." + context + "') FROM " + metaTable + " WHERE name='contextMetadata'";
         String contextMetaStr = (String)getElement(bookmarkName, sql);
         if (contextMetaStr != null) {
             return mapper.readValue(contextMetaStr, ContextMetadata.class);
@@ -680,8 +680,10 @@ public class BookmarkSqliteDao implements BookmarkDao{
                 Connection conn = null;
                 String url = "jdbc:sqlite:" + path + "/" + databaseName + ".db";
                 conn = DriverManager.getConnection(url);
+                return conn;
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+        }
         throw new IllegalArgumentException("invalid bookmark name or bad configuration");
 
     }
@@ -728,10 +730,8 @@ public class BookmarkSqliteDao implements BookmarkDao{
                 ");";
 
         sql += "INSERT INTO " + metaTable + " (name, data) " + " VALUES ('config',json('{}'));";
-
         sql += "INSERT INTO " + metaTable + " (name, data) " + " VALUES ('lock',-1);";
-        sql += "INSERT INTO " + metaTable + " (name, data)  VALUES ('schemas',json('{}'));";
-        sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('contextList',json('{}'));";
+        sql += "INSERT INTO " + metaTable + " (name, data)  VALUES ('contextMetadata',json('{}'));";
         try {
             return executeStatement(bookmarkName, sql);
         } catch (Exception throwables) {

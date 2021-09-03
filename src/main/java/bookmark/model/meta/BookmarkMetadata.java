@@ -53,6 +53,6 @@ public class BookmarkMetadata {
 
     String bookmarkName;
     BookmarkConfig config;
-    BookmarkState lock;
+    BookmarkState lock ;
     HashMap<String, ContextMetadata> contextMetadata;
 }
