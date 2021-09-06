@@ -333,7 +333,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
             stmt = conn.createStatement();
             stmt.setQueryTimeout(timeoutMillis);
             String sql = "UPDATE " + valuesTable + " SET data=json(?) " +
-                    "WHERE name=" + values.getContext();
+                    "WHERE name='" + values.getContext() + "'";
             PreparedStatement pstmt = conn.prepareStatement(sql);
             String data = mapper.writeValueAsString(values);
             pstmt.setString(1, data);

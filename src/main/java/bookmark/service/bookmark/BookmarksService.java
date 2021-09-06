@@ -134,14 +134,62 @@ public class BookmarksService {
     public BookmarkTxns getBookmarkTxn(String bookmarkName, TxnQuery query)
     {
         try {
-            if (query == null) {
-                query = new TxnQuery();
-                query.setLimit(1);
-            }
             return bookmarkDao.getBookmarkTxn(bookmarkName, query);
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid Request");
         }
+    }
+
+    public BookmarkTxns getNewestContextTxn(String bookmarkName, String context, Integer count)
+    {
+        try {
+            TxnQuery query = new TxnQuery();
+            query.setContext(context);
+            query.setLimit(count);
+            return bookmarkDao.getBookmarkTxn(bookmarkName, query);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid Request");
+        }
+    }
+
+    public BookmarkTxns getNewestBookmarkTxn(String bookmarkName, Integer count)
+    {
+        return getNewestContextTxn(bookmarkName, defaultContextName, count);
+    }
+
+    public BookmarkTxns getOldestContextTxn(String bookmarkName, String context, Integer count)
+    {
+        try {
+            TxnQuery query = new TxnQuery();
+            query.setContext(context);
+            query.setLimit(-1*count);
+            return bookmarkDao.getBookmarkTxn(bookmarkName, query);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid Request");
+        }
+    }
+
+    public BookmarkTxns getOldestBookmarkTxn(String bookmarkName, Integer count)
+    {
+        return getOldestContextTxn(bookmarkName, defaultContextName, count);
+    }
+
+    public BookmarkTxns getContextTxnBetween(String bookmarkName, String context, Time from, Time to)
+    {
+        try {
+            TxnQuery query = new TxnQuery();
+            query.setContext(context);
+            query.setFrom(from);
+            query.setTo(to);
+            return bookmarkDao.getBookmarkTxn(bookmarkName, query);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid Request");
+        }
+    }
+
+    public BookmarkTxns getBookmarkTxnBetween(String bookmarkName, Time from, Time to)
+    {
+        return getContextTxnBetween(bookmarkName, defaultContextName, from, to);
     }
 
     public Boolean saveBookmarkTxn(String bookmarkName, BookmarkTxns txns) {
@@ -175,7 +223,7 @@ public class BookmarksService {
         }
     }
 
-    public BookmarkValues getBookmarkValues(String bookmarkName, String context)
+    public BookmarkValues getContextValues(String bookmarkName, String context)
     {
         try {
             if (context == null) {
@@ -185,6 +233,11 @@ public class BookmarksService {
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid Request");
         }
+    }
+
+    public BookmarkValues getBookmarkValues(String bookmarkName)
+    {
+        return getContextValues(bookmarkName, defaultContextName);
     }
 
     public Boolean updateBookmarkValues(String bookmarkName, BookmarkValues values) {

@@ -7,6 +7,7 @@ import bookmark.model.meta.BookmarkState;
 import bookmark.model.meta.ContextMetadata;
 import bookmark.model.txn.Bookmark;
 import bookmark.model.txn.BookmarkTxns;
+import bookmark.model.txn.TxnQuery;
 import bookmark.model.value.BookmarkValues;
 import bookmark.service.bookmark.BookmarksService;
 import org.junit.jupiter.api.Test;
@@ -90,39 +91,130 @@ class BookmarksServiceIT {
     }
 
     @Test
-    public void testDefaultContextValue(){
+    public void saveBookmarkTxn() {
         String bookmarkName = "bookmark";
         BookmarksService bookmarksService = getBookmarksService();
 
-        BookmarkValues values = new BookmarkValues();
-        values.put("intVal", 1);
-        values.put("floatVal", 2.0);
-        values.put("stringVal", "str");
-        assertTrue(bookmarksService.updateBookmarkValues(bookmarkName, values));
-        BookmarkValues returnValues = bookmarksService.getBookmarkValues(bookmarkName, null);
-        assertTrue(returnValues.containsKey("intVal"));
-        assertTrue(returnValues.containsKey("floatVal"));
-        assertTrue(returnValues.containsKey("stringVal"));
-    }
-
-    @Test
-    public void testDefaultContextTxn(){
-        String bookmarkName = "bookmark";
-        BookmarksService bookmarksService = getBookmarksService();
-
-        BookmarkTxns txns = new BookmarkTxns();
-        txns.add(new Bookmark(Time.parse("2021-08-01T00:00:00.000Z")){{
+        //insert 2 bookmarks with unique values
+        BookmarkTxns olderTxns = new BookmarkTxns();
+        olderTxns.add(new Bookmark(Time.parse("2021-08-01T00:00:00.000Z")){{
             put("intVal", 1);
             put("floatVal", 2.0);
+        }});
+        assertTrue(bookmarksService.saveBookmarkTxn(bookmarkName, olderTxns));
+
+        //validate that first bookmark has been saved
+        BookmarkTxns retrievedTxns = bookmarksService.getOldestBookmarkTxn(bookmarkName, 10);
+        assertTrue(retrievedTxns.size() == 1);
+        assertTrue(retrievedTxns.get(0).size() == 2);
+        assertTrue(retrievedTxns.get(0).get("intVal").equals(1));
+        assertTrue(retrievedTxns.get(0).get("floatVal").equals(2.0));
+        assertTrue(retrievedTxns.get(0).getTimestamp().toString().equals(olderTxns.get(0).getTimestamp().toString()));
+
+        BookmarkTxns newerTxns = new BookmarkTxns();
+        newerTxns.add(new Bookmark(Time.parse("2021-09-01T00:00:00.000Z")){{
             put("string", "string");
             put("boolVal", true);
         }});
-        assertTrue(bookmarksService.saveBookmarkTxn(bookmarkName, txns));
-        BookmarkTxns retrievedTxns = bookmarksService.getBookmarkTxn(bookmarkName, null);
+        assertTrue(bookmarksService.saveBookmarkTxn(bookmarkName, newerTxns));
+
+        //validate newer bookmark has been saved and older once have been deleted
+        retrievedTxns = bookmarksService.getNewestBookmarkTxn(bookmarkName, 10);
         assertTrue(retrievedTxns.size() == 1);
-        assertTrue(retrievedTxns.get(0).containsKey("intVal"));
-        assertTrue(retrievedTxns.get(0).containsKey("floatVal"));
-        assertTrue(retrievedTxns.get(0).containsKey("string"));
-        assertTrue(retrievedTxns.get(0).containsKey("boolVal"));
+        assertTrue(retrievedTxns.get(0).size() == 2);
+        assertTrue(retrievedTxns.get(0).get("string").equals("string"));
+        assertTrue(retrievedTxns.get(0).get("boolVal").equals(true));
+        assertTrue(retrievedTxns.get(0).getTimestamp().toString().equals(newerTxns.get(0).getTimestamp().toString()));
+    }
+
+    @Test
+    public void updateBookmarkTxn() {
+        String bookmarkName = "bookmark";
+        BookmarksService bookmarksService = getBookmarksService();
+
+        //insert 2 bookmarks with unique values
+        BookmarkTxns olderTxns = new BookmarkTxns();
+        olderTxns.add(new Bookmark(Time.parse("2021-08-01T00:00:00.000Z")){{
+            put("intVal", 1);
+            put("floatVal", 2.0);
+        }});
+        assertTrue(bookmarksService.updateBookmarkTxn(bookmarkName, olderTxns));
+        BookmarkTxns newerTxns = new BookmarkTxns();
+        newerTxns.add(new Bookmark(Time.parse("2021-09-01T00:00:00.000Z")){{
+            put("string", "string");
+            put("boolVal", true);
+        }});
+        assertTrue(bookmarksService.updateBookmarkTxn(bookmarkName, newerTxns));
+
+        //validate that older bookmark still exists and has not been overwritten
+        BookmarkTxns retrievedTxns = bookmarksService.getOldestBookmarkTxn(bookmarkName, 1);
+        assertTrue(retrievedTxns.size() == 1);
+        assertTrue(retrievedTxns.get(0).size() == 2);
+        assertTrue(retrievedTxns.get(0).get("intVal").equals(1));
+        assertTrue(retrievedTxns.get(0).get("floatVal").equals(2.0));
+        assertTrue(retrievedTxns.get(0).getTimestamp().toString().equals(olderTxns.get(0).getTimestamp().toString()));
+
+        //validate newer bookmark exists
+        retrievedTxns = bookmarksService.getNewestBookmarkTxn(bookmarkName, 1);
+        assertTrue(retrievedTxns.size() == 1);
+        assertTrue(retrievedTxns.get(0).size() == 2);
+        assertTrue(retrievedTxns.get(0).get("string").equals("string"));
+        assertTrue(retrievedTxns.get(0).get("boolVal").equals(true));
+        assertTrue(retrievedTxns.get(0).getTimestamp().toString().equals(newerTxns.get(0).getTimestamp().toString()));
+    }
+
+    @Test
+    public void testSaveBookmarkValues() {
+        String bookmarkName = "bookmark";
+        BookmarksService bookmarksService = getBookmarksService();
+
+        BookmarkValues initialValues = new BookmarkValues(){{
+            put("intVal", 1);
+            put("floatVal", 2.0);
+        }};
+
+        assertTrue(bookmarksService.saveBookmarkValues(bookmarkName, initialValues));
+        BookmarkValues retrievedValues = bookmarksService.getBookmarkValues(bookmarkName);
+        assertTrue(retrievedValues.size() == 2);
+        assertTrue(retrievedValues.get("intVal").equals(1));
+        assertTrue(retrievedValues.get("floatVal").equals(2.0));
+
+        BookmarkValues newValues = new BookmarkValues(){{
+            put("string", "string");
+            put("boolVal", true);
+        }};
+
+        assertTrue(bookmarksService.saveBookmarkValues(bookmarkName, newValues));
+        retrievedValues = bookmarksService.getBookmarkValues(bookmarkName);
+        assertTrue(retrievedValues.size() == 2);
+        assertTrue(retrievedValues.get("string").equals("string"));
+        assertTrue(retrievedValues.get("boolVal").equals("true"));
+    }
+
+    @Test
+    public void testUpdateBookmarkValues() {
+        String bookmarkName = "bookmark";
+        BookmarksService bookmarksService = getBookmarksService();
+
+        BookmarkValues initialValues = new BookmarkValues(){{
+            put("intVal", 1);
+            put("floatVal", 2.0);
+        }};
+
+        assertTrue(bookmarksService.updateBookmarkValues(bookmarkName, initialValues));
+
+        BookmarkValues newValues = new BookmarkValues(){{
+            put("floatVal", 3.0);
+            put("string", "string");
+            put("boolVal", true);
+        }};
+
+        assertTrue(bookmarksService.updateBookmarkValues(bookmarkName, newValues));
+        BookmarkValues retrievedValues = bookmarksService.getBookmarkValues(bookmarkName);
+        assertTrue(retrievedValues.size() == 4);
+        assertTrue(retrievedValues.get("intVal").equals(1));
+        assertTrue(retrievedValues.get("floatVal").equals(3.0));
+        assertTrue(retrievedValues.get("string").equals("string"));
+        assertTrue(retrievedValues.get("boolVal").equals(true));
     }
 }

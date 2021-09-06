@@ -126,7 +126,7 @@ public class BookmarkController2 {
     @GetMapping("/bookmark/{bookmark_name}/data/{context}/values")
     public BookmarkValues getTransactions(@PathVariable String bookmarkName, @PathVariable String transactionContext,
                                           @RequestParam ValueQuery query) {
-        return bookmarkService.getBookmarkValues(bookmarkName, query.getContext());
+        return bookmarkService.getContextValues(bookmarkName, query.getContext());
     }
 
     @PostMapping("/bookmark/{bookmark_name}/data/{context}/values")
