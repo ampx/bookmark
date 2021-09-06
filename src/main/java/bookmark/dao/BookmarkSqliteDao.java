@@ -66,47 +66,43 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
         //delete if there are any residue files from corrupted bookmark
         deleteBookmark(bookmarkName);
-        if (bookmarkMetadata == null) {
-            bookmarkMetadata = new BookmarkMetadata();
-        }
+        BookmarkState originalState = bookmarkMetadata.getState();
         bookmarkMetadata.setState(BookmarkState.notReadyState());
         if(createMetaTable(bookmarkName) && saveBookmarkMeta(bookmarkName, bookmarkMetadata)
                 && createValuesTable(bookmarkName) ) {
             enableWriteAhead(bookmarkName);
             if (bookmarkMetadata.getContextMap() != null) {
-                for (String context: bookmarkMetadata.getContextList()) {
+                for (ContextMetadata context: bookmarkMetadata.getContextMetadata()) {
                     createContext(bookmarkName, context);
                 }
             }
-            BookmarkMetadata unlock = new BookmarkMetadata();
-            unlock.setState(BookmarkState.unlockedState());
-            updateBookmarkMeta(bookmarkName, unlock);
+            BookmarkMetadata setState = new BookmarkMetadata();
+            setState.setState(originalState);
+            updateBookmarkMeta(bookmarkName, setState);
             return true;
         }
         return false;
     }
 
     @Override
-    public Boolean createContext(String bookmarkName, String context) throws Exception{
+    public Boolean createContext(String bookmarkName, ContextMetadata context) throws Exception{
         Boolean success = true;
         //register context name in the metadata if it is not already
         BookmarkMetadata contextMeta = getBookmarkMeta(bookmarkName);
         if (!contextMeta.getContextList().contains(context)) {
-            ContextMetadata contextMetadata = new ContextMetadata();
-            contextMetadata.setName(context);
-            success &= updateContextMeta(bookmarkName, contextMetadata);
+            success &= updateContextMeta(bookmarkName, context);
         }
         //create context transaction table if it does not exist already
         String checkTxnTableSql = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='" + context + "';";
         Integer txnTableCount = (Integer) getElement(bookmarkName, checkTxnTableSql);
         if (txnTableCount < 1) {
-            success &= createTxnTable(bookmarkName, context);
+            success &= createTxnTable(bookmarkName, context.getName());
         }
         //create context value field if it does not exist already
         String checkValueTableSql = "SELECT count(*) FROM " + valuesTable + " WHERE name='" + context + "';";
         Integer valueEntryCount = (Integer) getElement(bookmarkName, checkValueTableSql);
         if (valueEntryCount < 1) {
-            success &= createValueEntry(bookmarkName, context);
+            success &= createValueEntry(bookmarkName, context.getName());
         }
         return success;
     }
@@ -257,7 +253,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
         try {
             ResultSet rs = stmt.executeQuery(sql);
-            new BookmarkTxns();
+            txns = new BookmarkTxns();
             txns.setContext(txnQuery.getContext());
             while (rs.next()) {
                 Bookmark bookmark = new Bookmark();
@@ -281,49 +277,40 @@ public class BookmarkSqliteDao implements BookmarkDao{
 
     @Override
     public BookmarkValues getBookmarkValues(String bookmarkName, ValueQuery query)  throws Exception{
-        String sql = null;
-        if (query != null) {
-            String valuesExtStr = "";
-            for (String value: query.getValueNames()) {
-                valuesExtStr += ", '$.'" + value;
-            }
-            sql = "SELECT json_extract(stateValues " + valuesExtStr + ") as stateValues";
-        } else {
-            sql = "SELECT stateValues";
-        }
-        sql += " FROM " + valuesTable + " WHERE context='" + query.getContext() + "';";
         BookmarkValues values = null;
         Statement stmt = null;
         Connection conn = null;
         try {
+            String sql = null;
+            if (query.getValueNames() != null && query.getValueNames().size() > 0) {
+                String valuesExtStr = "";
+                for (String value: query.getValueNames()) {
+                    valuesExtStr += ", '$.'" + value;
+                }
+                sql = "SELECT json_extract(data " + valuesExtStr + ") as data";
+            } else {
+                sql = "SELECT data";
+            }
+            sql += " FROM " + valuesTable + " WHERE name='" + query.getContext() + "';";
             String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
             conn = DriverManager.getConnection(url);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
             stmt = conn.createStatement();
             stmt.setQueryTimeout(timeoutMillis);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
             ResultSet rs = stmt.executeQuery(sql);
-            values = new BookmarkValues();
-            while (rs.next()) {
-                String metric_str = rs.getString("stateValues");
+            if (rs.next()) {
+                values = new BookmarkValues(query.getContext());
+                String metric_str = rs.getString("data");
                 if (metric_str != null && metric_str.contains("{")) {
                     values.setValues(new ObjectMapper().readValue(metric_str, HashMap.class));
                 }
             }
             stmt.close();
             conn.close();
-            return values;
         } catch (Exception e) {
             try {stmt.close();} catch (Exception ex) {}
             try {conn.close();} catch (Exception ex) {}
-            throw e;
         }
+        return values;
     }
 
     @Override
@@ -333,9 +320,8 @@ public class BookmarkSqliteDao implements BookmarkDao{
         try {
             stmt = conn.createStatement();
             stmt.setQueryTimeout(timeoutMillis);
-            conn.setAutoCommit(false);
             String sql = "UPDATE " + valuesTable + " SET data=json_patch(data, ?) " +
-                    "WHERE name=" + values.getContext();
+                    "WHERE name='" + values.getContext() + "'";
             PreparedStatement pstmt = conn.prepareStatement(sql);
             String data = null;
             if (values.getValues() != null) {
@@ -372,7 +358,6 @@ public class BookmarkSqliteDao implements BookmarkDao{
         try {
             stmt = conn.createStatement();
             stmt.setQueryTimeout(timeoutMillis);
-            conn.setAutoCommit(false);
             String sql = "UPDATE " + valuesTable + " SET data=json(?) " +
                     "WHERE name=" + values.getContext();
             PreparedStatement pstmt = conn.prepareStatement(sql);
@@ -430,7 +415,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
                     bookmarkMetadata.setConfig(new ObjectMapper().readValue(data, BookmarkConfig.class));
                 } else if ("lock".equals(name)) {
                     bookmarkMetadata.setState(new BookmarkState(rs.getInt("data")));
-                } else if ("contextMetadata".equals(name)) {
+                } else if ("context".equals(name)) {
                     String data = rs.getString("data");
                     bookmarkMetadata.setContextMetadata(mapper.readValue(
                             data, mapper.getTypeFactory().constructMapType(HashMap.class, String.class, ContextMetadata.class)));
@@ -452,16 +437,16 @@ public class BookmarkSqliteDao implements BookmarkDao{
         if (bookmarkMetadata.getConfig() != null) {
             String configStr = mapper.writeValueAsString(bookmarkMetadata.getConfig());
             sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('config',json('" + configStr + "'))" +
-                    " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, ?)";
+                    " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, json('" + configStr + "'));";
         }
         if (bookmarkMetadata.getState() != null) {
             sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('lock'," + bookmarkMetadata.getState()+ ")" +
-                    " ON CONFLICT(name) DO UPDATE SET data=" + bookmarkMetadata.getState();
+                    " ON CONFLICT(name) DO UPDATE SET data=" + bookmarkMetadata.getState() + ";";
         }
         if (bookmarkMetadata.getContextMap() != null) {
             String schemasStr = mapper.writeValueAsString(bookmarkMetadata.getContextMap());
-            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('contextMetadata',json('" + schemasStr + "'))" +
-                    " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, ?)";
+            sql += "INSERT INTO " + metaTable + " (name, data) VALUES ('context',json('" + schemasStr + "'))" +
+                    " ON CONFLICT(name) DO UPDATE SET data=json_patch(data, json('" + schemasStr + "'));";
         }
         return executeStatement(bookmarkName, sql);
     }
@@ -478,14 +463,14 @@ public class BookmarkSqliteDao implements BookmarkDao{
         }
         if (bookmarkMetadata.getContextMap() != null) {
             String schemasStr = mapper.writeValueAsString(bookmarkMetadata.getContextMap());
-            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('contextMetadata',json('"+ schemasStr +"'));";
+            sql += "REPLACE INTO " + metaTable + " (name, data) " + " VALUES ('context',json('"+ schemasStr +"'));";
         }
         return executeStatement(bookmarkName, sql);
     }
 
     @Override
     public ContextMetadata getContextMeta(String bookmarkName, String context) throws Exception {
-        String sql = "SELECT json_extract(data,'$." + context + "') FROM " + metaTable + " WHERE name='contextMetadata'";
+        String sql = "SELECT json_extract(data,'$." + context + "') FROM " + metaTable + " WHERE name='context'";
         String contextMetaStr = (String)getElement(bookmarkName, sql);
         if (contextMetaStr != null) {
             return mapper.readValue(contextMetaStr, ContextMetadata.class);
@@ -520,7 +505,6 @@ public class BookmarkSqliteDao implements BookmarkDao{
         try {
             stmt = conn.createStatement();
             stmt.setQueryTimeout(timeoutMillis);
-            conn.setAutoCommit(false);
             String sql = "UPDATE " + metaTable + " SET data=? WHERE name='lock' AND data!=?";
             PreparedStatement pstmt = conn.prepareStatement(sql);
             pstmt.setInt(1, state.getState());
@@ -651,16 +635,8 @@ public class BookmarkSqliteDao implements BookmarkDao{
         try {
             String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
             conn = DriverManager.getConnection(url);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
             stmt = conn.createStatement();
             stmt.setQueryTimeout(timeoutMillis);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        }
-        try {
             ResultSet rs = stmt.executeQuery(sql);
             if (rs.next()) {
                 restultObject = rs.getObject(1);
@@ -668,7 +644,8 @@ public class BookmarkSqliteDao implements BookmarkDao{
             stmt.close();
             conn.close();
         } catch (Exception e) {
-            throw e;
+            try {stmt.close();} catch (Exception ex) {}
+            try {conn.close();} catch (Exception ex) {}
         }
         return restultObject;
     }
@@ -731,7 +708,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
 
         sql += "INSERT INTO " + metaTable + " (name, data) " + " VALUES ('config',json('{}'));";
         sql += "INSERT INTO " + metaTable + " (name, data) " + " VALUES ('lock',-1);";
-        sql += "INSERT INTO " + metaTable + " (name, data)  VALUES ('contextMetadata',json('{}'));";
+        sql += "INSERT INTO " + metaTable + " (name, data)  VALUES ('context',json('{}'));";
         try {
             return executeStatement(bookmarkName, sql);
         } catch (Exception throwables) {

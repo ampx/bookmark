@@ -34,7 +34,7 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public Boolean createContext(String bookmarkName, String context) throws Exception {
+    public Boolean createContext(String bookmarkName, ContextMetadata context) throws Exception {
         return null;
     }
 

@@ -3,6 +3,15 @@ package bookmark.model.value;
 import java.util.List;
 
 public class ValueQuery {
+
+    public ValueQuery() {
+        this.context = "defaultContext";
+    }
+
+    public ValueQuery(String context) {
+        this.context = context;
+    }
+
     public String getContext() {
         return context;
     }

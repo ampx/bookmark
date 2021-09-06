@@ -38,7 +38,7 @@ public class BookmarkController2 {
     }
 
     //create bookmark
-    @PutMapping("/bookmark/{bookmark-name}")
+    /*@PutMapping("/bookmark/{bookmark-name}")
     public ResponseEntity<?> createBookmarkUpdateMeta(@PathVariable String bookmarkName,
                                                 @RequestBody BookmarkMetadata bookmarkMetadata) {
         try {
@@ -47,10 +47,10 @@ public class BookmarkController2 {
             }
         } catch (Exception e) {}
         return badReqResp;
-    }
+    }*/
 
     //create bookmark
-    @PostMapping("/bookmark/{bookmark-name}")
+    /*@PostMapping("/bookmark/{bookmark-name}")
     public ResponseEntity<?> createBookmarkOverwriteMeta(@PathVariable String bookmarkName,
                                               @RequestBody BookmarkMetadata bookmarkMetadata) {
         try {
@@ -59,7 +59,7 @@ public class BookmarkController2 {
             }
         } catch (Exception e) {}
         return badReqResp;
-    }
+    }*/
 
     //get bookmark meta
     @GetMapping("/bookmark/{bookmark-name}/meta")
@@ -69,7 +69,7 @@ public class BookmarkController2 {
     }
 
     //update bookmark config
-    @PutMapping("/bookmark/{bookmark-name}/meta")
+    /*@PutMapping("/bookmark/{bookmark-name}/meta")
     public ResponseEntity<?> updateBookmarkMeta(@PathVariable String bookmarkName,
                                                 @RequestBody BookmarkMetadata bookmarkMetadata) {
         try {
@@ -78,10 +78,10 @@ public class BookmarkController2 {
             }
         } catch (Exception e) {}
         return badReqResp;
-    }
+    }*/
 
     //overwrite config
-    @PostMapping("/bookmark/{bookmark-name}/meta")
+    /*@PostMapping("/bookmark/{bookmark-name}/meta")
     public ResponseEntity<?> saveBookmarkMeta(@PathVariable String bookmarkName,
                                               @RequestBody BookmarkMetadata bookmarkMetadata) {
         try {
@@ -90,7 +90,7 @@ public class BookmarkController2 {
             }
         } catch (Exception e) {}
         return badReqResp;
-    }
+    }*/
 
     @GetMapping("/bookmark/{bookmark-name}/data/{context}/txn")
     public BookmarkTxns getTransactions(@PathVariable String bookmarkName,

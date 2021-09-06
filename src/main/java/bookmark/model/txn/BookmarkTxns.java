@@ -4,6 +4,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BookmarkTxns {
+
+    public BookmarkTxns() {
+        this.context = "defaultContext";
+    }
+
+    public BookmarkTxns(String context) {
+        this.context = context;
+    }
+
     public String getContext() {
         return context;
     }
@@ -24,6 +33,6 @@ public class BookmarkTxns {
         bookmarks.add(bookmark);
     }
 
-    String context = "default";
+    String context;
     List<Bookmark> bookmarks = new ArrayList<>(10);
 }

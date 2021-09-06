@@ -3,6 +3,15 @@ package bookmark.model.txn;
 import util.time.model.Time;
 
 public class TxnQuery {
+
+    public TxnQuery() {
+        this.context = "defaultContext";
+    }
+
+    public TxnQuery(String context) {
+        this.context = context;
+    }
+
     public Time getFrom() {
         return from;
     }

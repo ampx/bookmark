@@ -4,6 +4,15 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BookmarkValues {
+
+    public BookmarkValues() {
+        this.context = "defaultContext";
+    }
+
+    public BookmarkValues(String context) {
+        this.context = context;
+    }
+
     public String getContext() {
         return context;
     }

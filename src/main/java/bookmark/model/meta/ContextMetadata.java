@@ -5,8 +5,14 @@ import java.util.Map;
 import java.util.Set;
 
 public class ContextMetadata {
-    String name = "default";
+    String name = "defaultContext";
     Map<String, Types> schema = new HashMap<>();
+
+    public ContextMetadata(){}
+
+    public ContextMetadata(String name) {
+        this.name = name;
+    }
 
     public String getName() {
         return name;

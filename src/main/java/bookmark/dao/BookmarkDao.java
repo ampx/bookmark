@@ -16,7 +16,7 @@ public interface BookmarkDao {
 
     public Boolean createBookmark(String bookmarkName, BookmarkMetadata bookmarkMetadata) throws Exception;
 
-    public Boolean createContext(String bookmarkName, String context) throws Exception;
+    public Boolean createContext(String bookmarkName, ContextMetadata context) throws Exception;
 
     public Boolean bookmarkExists(String bookmarkName) throws Exception;
 
