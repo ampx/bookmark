@@ -16,10 +16,11 @@ public class BookmarkServiceConfig {
 
     @Bean
     public BookmarkService bookmarkInstanceService() {
-        BookmarkService bookmarkService = new BookmarkService();
+        //BookmarkService bookmarkService = new BookmarkService();
         //bookmarkInstanceService.setBookmarksService(bookmarksService());
         //bookmarkInstanceService.setBookmarkName(configProperties.getBookmarkName());
-        return bookmarkService;
+        //return bookmarkService;
+        return null;
     }
 
     private BookmarkDao bookmarkDao(){

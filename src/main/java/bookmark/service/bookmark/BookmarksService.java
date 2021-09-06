@@ -420,17 +420,19 @@ public class BookmarksService {
         return success;
     }
 
-    public BookmarkService createInstantService(String bookmarkName) {
-        BookmarkService bookmarkService = new BookmarkService();
-        //bookmarkInstanceService.setBookmarkName(bookmarkName);
-        //bookmarkInstanceService.setBookmarksService(this);
+    public BookmarkService createInstantService(String bookmarkName, BookmarkMetadata meta) {
+        BookmarkService bookmarkService = new BookmarkService(this, bookmarkName, meta);
         return bookmarkService;
     }
 
-    public ContextService createTransactionInstanceService(String bookmarkName, String context) {
+    public ContextService createDefaultContext(String bookmarkName) {
+        return createContextService(bookmarkName, defaultContextName);
+    }
+
+    public ContextService createContextService(String bookmarkName, String context) {
         ContextService contextService = new ContextService();
-        contextService.setBookmarkInstanceService(createInstantService(bookmarkName));
-        contextService.setContextName(context);
+        //contextService.setBookmarkInstanceService(createInstantService(bookmarkName));
+        //contextService.setContextName(context);
         return contextService;
     }
 
