@@ -3,7 +3,7 @@ package bookmark.model.value;
 import java.util.HashMap;
 import java.util.Map;
 
-public class BookmarkValues {
+public class BookmarkValues extends HashMap<String, Object>{
 
     public BookmarkValues() {
         this.context = "defaultContext";
@@ -21,7 +21,7 @@ public class BookmarkValues {
         this.context = context;
     }
 
-    public Map<String, Object> getValues() {
+    /*public Map<String, Object> getValues() {
         return values;
     }
 
@@ -31,8 +31,8 @@ public class BookmarkValues {
 
     public void addValue(String name, Object value) {
         values.put(name, value);
-    }
+    }*/
 
     String context;
-    Map<String, Object> values = new HashMap<>();
+    //Map<String, Object> values = new HashMap<>();
 }

@@ -11,8 +11,8 @@ public class GrafanaDTO {
         if (bookmarks.size() > 0) {
             Bookmark sampleBookmark = bookmarks.get(0);
             Integer metricCount = 0;
-            if (sampleBookmark.getMetrics() != null) {
-                metricCount = sampleBookmark.getMetrics().size();
+            if (sampleBookmark != null) {
+                metricCount = sampleBookmark.size();
             }
             Integer columnNum = metricCount + 1;
             Table table = new Table(columnNum);
@@ -21,7 +21,7 @@ public class GrafanaDTO {
             headers[i++] = "timestamp";
             List<String> metricNames = new ArrayList<>();
             if (metricCount > 0) {
-                for (String header : sampleBookmark.getMetrics().keySet()) {
+                for (String header : sampleBookmark.keySet()) {
                     headers[i++] = header;
                     metricNames.add(header);
                 }
@@ -32,7 +32,7 @@ public class GrafanaDTO {
                 Object[] row = new Object[columnNum];
                 row[j++] = bookmark.getTimestamp().mysqlString();
                 for (String metricName : metricNames) {
-                    row[j++] = bookmark.getMetrics().get(metricName);
+                    row[j++] = bookmark.get(metricName);
                 }
                 table.addRow(row);
             }

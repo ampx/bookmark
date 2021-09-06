@@ -32,7 +32,7 @@ public interface BookmarkDao {
 
     public BookmarkTxns getBookmarkTxn(String bookmarkName, TxnQuery query)  throws Exception;
 
-    public BookmarkValues getBookmarkValues(String bookmarkName, ValueQuery query)  throws Exception;
+    public BookmarkValues getBookmarkValues(String bookmarkName, String context)  throws Exception;
 
     public Boolean updateBookmarkValues(String bookmarkName, BookmarkValues values) throws Exception;
 

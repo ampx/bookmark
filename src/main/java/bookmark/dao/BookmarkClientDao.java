@@ -74,7 +74,7 @@ public class BookmarkClientDao implements BookmarkDao{
     }
 
     @Override
-    public BookmarkValues getBookmarkValues(String bookmarkName, ValueQuery query) throws Exception {
+    public BookmarkValues getBookmarkValues(String bookmarkName, String context) throws Exception {
         return null;
     }
 

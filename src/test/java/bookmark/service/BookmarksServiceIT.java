@@ -46,12 +46,11 @@ class BookmarksServiceIT {
         bookmarksService.createBookmark("bookmark-defaultMeta", null);
 
         BookmarkTxns bookmarkTxns = new BookmarkTxns();
-        bookmarkTxns.addBookmark(new Bookmark(new HashMap(){{put("a","b");}}));
+        bookmarkTxns.add(new Bookmark(){{put("a","b");}});
         bookmarksService.saveBookmarkTxn("bookmark-autoTxnSave", bookmarkTxns);
         bookmarksService.updateBookmarkTxn("bookmark-autoTxnUpdate", bookmarkTxns);
 
-        BookmarkValues values = new BookmarkValues();
-        values.setValues(new HashMap(){{put("a","b");}});
+        BookmarkValues values = new BookmarkValues(){{put("a","b");}};
         bookmarksService.saveBookmarkValues("bookmark-autoValueSave", values);
         bookmarksService.updateBookmarkValues("bookmark-autoValueUpdate", values);
 
@@ -96,14 +95,14 @@ class BookmarksServiceIT {
         BookmarksService bookmarksService = getBookmarksService();
 
         BookmarkValues values = new BookmarkValues();
-        values.addValue("intVal", 1);
-        values.addValue("floatVal", 2.0);
-        values.addValue("stringVal", "str");
+        values.put("intVal", 1);
+        values.put("floatVal", 2.0);
+        values.put("stringVal", "str");
         assertTrue(bookmarksService.updateBookmarkValues(bookmarkName, values));
         BookmarkValues returnValues = bookmarksService.getBookmarkValues(bookmarkName, null);
-        assertTrue(returnValues.getValues().containsKey("intVal"));
-        assertTrue(returnValues.getValues().containsKey("floatVal"));
-        assertTrue(returnValues.getValues().containsKey("stringVal"));
+        assertTrue(returnValues.containsKey("intVal"));
+        assertTrue(returnValues.containsKey("floatVal"));
+        assertTrue(returnValues.containsKey("stringVal"));
     }
 
     @Test
@@ -112,18 +111,18 @@ class BookmarksServiceIT {
         BookmarksService bookmarksService = getBookmarksService();
 
         BookmarkTxns txns = new BookmarkTxns();
-        txns.addBookmark(new Bookmark(Time.parse("2021-08-01T00:00:00.000Z"), new HashMap(){{
+        txns.add(new Bookmark(Time.parse("2021-08-01T00:00:00.000Z")){{
             put("intVal", 1);
             put("floatVal", 2.0);
             put("string", "string");
             put("boolVal", true);
-        }}));
+        }});
         assertTrue(bookmarksService.saveBookmarkTxn(bookmarkName, txns));
         BookmarkTxns retrievedTxns = bookmarksService.getBookmarkTxn(bookmarkName, null);
-        assertTrue(retrievedTxns.getBookmarks().size() == 1);
-        assertTrue(retrievedTxns.getBookmarks().get(0).getMetrics().containsKey("intVal"));
-        assertTrue(retrievedTxns.getBookmarks().get(0).getMetrics().containsKey("floatVal"));
-        assertTrue(retrievedTxns.getBookmarks().get(0).getMetrics().containsKey("string"));
-        assertTrue(retrievedTxns.getBookmarks().get(0).getMetrics().containsKey("boolVal"));
+        assertTrue(retrievedTxns.size() == 1);
+        assertTrue(retrievedTxns.get(0).containsKey("intVal"));
+        assertTrue(retrievedTxns.get(0).containsKey("floatVal"));
+        assertTrue(retrievedTxns.get(0).containsKey("string"));
+        assertTrue(retrievedTxns.get(0).containsKey("boolVal"));
     }
 }

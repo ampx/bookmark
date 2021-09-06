@@ -3,7 +3,7 @@ package bookmark.model.txn;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BookmarkTxns {
+public class BookmarkTxns extends ArrayList<Bookmark>{
 
     public BookmarkTxns() {
         this.context = "defaultContext";
@@ -21,7 +21,7 @@ public class BookmarkTxns {
         this.context = context;
     }
 
-    public List<Bookmark> getBookmarks() {
+    /*public List<Bookmark> getBookmarks() {
         return bookmarks;
     }
 
@@ -31,8 +31,8 @@ public class BookmarkTxns {
 
     public void addBookmark(Bookmark bookmark) {
         bookmarks.add(bookmark);
-    }
+    }*/
 
     String context;
-    List<Bookmark> bookmarks = new ArrayList<>(10);
+    //List<Bookmark> bookmarks = new ArrayList<>(10);
 }

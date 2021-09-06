@@ -21,7 +21,7 @@ public class BookmarksService {
     Integer defaultRetentionDays = 30;
     Integer maintenancePeriodDays = 7;
     BookmarkDao bookmarkDao;
-    String defaultContextName = "default";
+    String defaultContextName = "defaultContext";
 
     public void setCleanupPeriodMins(Integer cleanupPeriodMins) {
         this.cleanupPeriodMins = cleanupPeriodMins;
@@ -175,13 +175,13 @@ public class BookmarksService {
         }
     }
 
-    public BookmarkValues getBookmarkValues(String bookmarkName, ValueQuery query)
+    public BookmarkValues getBookmarkValues(String bookmarkName, String context)
     {
         try {
-            if (query == null ) {
-                query = new ValueQuery();
+            if (context == null) {
+                context = defaultContextName;
             }
-            return bookmarkDao.getBookmarkValues(bookmarkName, query);
+            return bookmarkDao.getBookmarkValues(bookmarkName, context);
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid Request");
         }
@@ -319,16 +319,15 @@ public class BookmarksService {
     }
 
     private void inferSchema(BookmarkTxns txns, ContextMetadata contextMeta) {
-        if (txns != null && txns.getBookmarks().size() > 0) {
-            for (Bookmark bookmark : txns.getBookmarks()) {
-                HashMap<String, Object> metrics = bookmark.getMetrics();
-                for (String key : metrics.keySet()) {
-                    if (metrics.get(key) != null) {
-                        if (metrics.get(key) instanceof Long || metrics.get(key) instanceof Integer) {
+        if (txns != null && txns.size() > 0) {
+            for (Bookmark bookmark : txns) {
+                for (String key : bookmark.keySet()) {
+                    if (bookmark.get(key) != null) {
+                        if (bookmark.get(key) instanceof Long || bookmark.get(key) instanceof Integer) {
                             contextMeta.addIntTxnField(key);
-                        } else if (metrics.get(key) instanceof Double || metrics.get(key) instanceof Float) {
+                        } else if (bookmark.get(key) instanceof Double || bookmark.get(key) instanceof Float) {
                             contextMeta.addFloatTxnField(key);
-                        } else if (metrics.get(key) instanceof Boolean) {
+                        } else if (bookmark.get(key) instanceof Boolean) {
                             contextMeta.addBoolTxnField(key);
                         } else {
                             contextMeta.addStringTxnField(key);

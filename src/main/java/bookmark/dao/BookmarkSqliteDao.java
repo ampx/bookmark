@@ -176,15 +176,13 @@ public class BookmarkSqliteDao implements BookmarkDao{
             String sql = "INSERT INTO " + txns.getContext() + " (timestamp,metrics) " + " VALUES (?,?)";
             PreparedStatement pstmt = conn.prepareStatement(sql);
             int count = 0;
-            for(Bookmark bookmark : txns.getBookmarks()){
+            for(Bookmark bookmark : txns){
                 String stats_str = "";
-                if (bookmark.getMetrics() != null) {
-                    try {
-                        stats_str = mapper.writeValueAsString(bookmark.getMetrics());
-                    } catch (JsonProcessingException e) {
-                        e.printStackTrace();
-                        return false;
-                    }
+                try {
+                    stats_str = mapper.writeValueAsString(bookmark);
+                } catch (JsonProcessingException e) {
+                    e.printStackTrace();
+                    return false;
                 }
 
                 pstmt.setLong(1,bookmark.getTimestamp().getInstant().toEpochMilli());
@@ -256,13 +254,10 @@ public class BookmarkSqliteDao implements BookmarkDao{
             txns = new BookmarkTxns();
             txns.setContext(txnQuery.getContext());
             while (rs.next()) {
-                Bookmark bookmark = new Bookmark();
-                bookmark.setTimestamp(Time.parse(rs.getLong("timestamp")));
                 String metric_str = rs.getString("metrics");
-                if (metric_str != null && metric_str.contains("{")) {
-                    bookmark.setMetrics(new ObjectMapper().readValue(metric_str, HashMap.class));
-                }
-                txns.addBookmark(bookmark);
+                Bookmark bookmark = new ObjectMapper().readValue(metric_str, Bookmark.class);
+                bookmark.setTimestamp(Time.parse(rs.getLong("timestamp")));
+                txns.add(bookmark);
             }
             stmt.close();
             conn.close();
@@ -276,33 +271,20 @@ public class BookmarkSqliteDao implements BookmarkDao{
     }
 
     @Override
-    public BookmarkValues getBookmarkValues(String bookmarkName, ValueQuery query)  throws Exception{
+    public BookmarkValues getBookmarkValues(String bookmarkName, String context)  throws Exception{
         BookmarkValues values = null;
         Statement stmt = null;
         Connection conn = null;
         try {
-            String sql = null;
-            if (query.getValueNames() != null && query.getValueNames().size() > 0) {
-                String valuesExtStr = "";
-                for (String value: query.getValueNames()) {
-                    valuesExtStr += ", '$.'" + value;
-                }
-                sql = "SELECT json_extract(data " + valuesExtStr + ") as data";
-            } else {
-                sql = "SELECT data";
-            }
-            sql += " FROM " + valuesTable + " WHERE name='" + query.getContext() + "';";
+            String sql = "SELECT data FROM " + valuesTable + " WHERE name='" + context + "';";
             String url = "jdbc:sqlite:" + path + "/" + bookmarkName + ".db";
             conn = DriverManager.getConnection(url);
             stmt = conn.createStatement();
             stmt.setQueryTimeout(timeoutMillis);
             ResultSet rs = stmt.executeQuery(sql);
             if (rs.next()) {
-                values = new BookmarkValues(query.getContext());
                 String metric_str = rs.getString("data");
-                if (metric_str != null && metric_str.contains("{")) {
-                    values.setValues(new ObjectMapper().readValue(metric_str, HashMap.class));
-                }
+                values = new ObjectMapper().readValue(metric_str, BookmarkValues.class);
             }
             stmt.close();
             conn.close();
@@ -324,14 +306,8 @@ public class BookmarkSqliteDao implements BookmarkDao{
                     "WHERE name='" + values.getContext() + "'";
             PreparedStatement pstmt = conn.prepareStatement(sql);
             String data = null;
-            if (values.getValues() != null) {
-                ObjectMapper mapper = new ObjectMapper();
-                try {
-                    data = mapper.writeValueAsString(values.getValues());
-                } catch (JsonProcessingException e) {
-                    return false;
-                }
-            }
+            ObjectMapper mapper = new ObjectMapper();
+            data = mapper.writeValueAsString(values);
             pstmt.setString(1, data);
             Integer updateCount = pstmt.executeUpdate();
             pstmt.close();
@@ -340,8 +316,6 @@ public class BookmarkSqliteDao implements BookmarkDao{
             if (updateCount < 1) {
                 throw new ConfigurationException("didn't update values - check if context is setup");
             }
-            stmt.close();
-            conn.close();
             return true;
         } catch (Exception e) {
             try {conn.rollback();} catch (Exception ex) {}
@@ -361,15 +335,7 @@ public class BookmarkSqliteDao implements BookmarkDao{
             String sql = "UPDATE " + valuesTable + " SET data=json(?) " +
                     "WHERE name=" + values.getContext();
             PreparedStatement pstmt = conn.prepareStatement(sql);
-            String data = null;
-            if (values.getValues() != null) {
-                ObjectMapper mapper = new ObjectMapper();
-                try {
-                    data = mapper.writeValueAsString(values.getValues());
-                } catch (JsonProcessingException e) {
-                    return false;
-                }
-            }
+            String data = mapper.writeValueAsString(values);
             pstmt.setString(1, data);
             Integer updateCount = pstmt.executeUpdate();
             pstmt.close();
