@@ -425,14 +425,12 @@ public class BookmarksService {
         return bookmarkService;
     }
 
-    public ContextService createDefaultContext(String bookmarkName) {
-        return createContextService(bookmarkName, defaultContextName);
+    public ContextService createDefaultContext(String bookmarkName, BookmarkMetadata metadata) {
+        return createContextService(bookmarkName, defaultContextName, metadata);
     }
 
-    public ContextService createContextService(String bookmarkName, String context) {
-        ContextService contextService = new ContextService();
-        //contextService.setBookmarkInstanceService(createInstantService(bookmarkName));
-        //contextService.setContextName(context);
+    public ContextService createContextService(String bookmarkName, String context, BookmarkMetadata metadata) {
+        ContextService contextService = new ContextService(context, createInstantService(bookmarkName, metadata));
         return contextService;
     }
 

@@ -10,6 +10,11 @@ public class ContextService {
     String contextName;
     BookmarkService bookmarkService;
 
+    public ContextService(String contextName, BookmarkService bookmarkService) {
+        this.contextName = contextName;
+        this.bookmarkService = bookmarkService;
+    }
+
     public BookmarkTxns getBookmarkTxn(TxnQuery query)
     {
         return bookmarkService.getBookmarkTxn(query);

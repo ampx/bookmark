@@ -1,7 +1,9 @@
 package bookmark.controller;
 
+import bookmark.model.meta.BookmarkConfig;
 import bookmark.model.meta.BookmarkMetadata;
 import bookmark.model.meta.BookmarkState;
+import bookmark.model.meta.ContextMetadata;
 import bookmark.model.txn.BookmarkTxns;
 import bookmark.model.txn.TxnQuery;
 import bookmark.model.value.BookmarkValues;
@@ -37,6 +39,211 @@ public class BookmarkController2 {
         return Collections.singletonMap("success", bookmarkService.bookmarkExists(bookmarkName));
     }
 
+    @PostMapping("/bookmark/{bookmark-name}")
+    public ResponseEntity<?> updateBookmarkMeta(@PathVariable String bookmarkName,
+                                                @RequestBody BookmarkMetadata bookmarkMetadata) {
+        try {
+            if (bookmarkService.createBookmark(bookmarkName, bookmarkMetadata)) {
+                return successResp;
+            }
+        } catch (Exception e) {}
+        return badReqResp;
+    }
+
+    @GetMapping("/bookmark/{bookmark-name}/meta")
+    public BookmarkMetadata getBookmarkMeta(@PathVariable String bookmarkName)
+    {
+        return bookmarkService.getBookmarkMetadata(bookmarkName);
+    }
+
+    @GetMapping("/bookmark/{bookmark-name}/config")
+    public BookmarkConfig getBookmarkConfig(@PathVariable String bookmarkName)
+    {
+        return bookmarkService.getBookmarkConfig(bookmarkName);
+    }
+
+    @PutMapping("/bookmark/{bookmark-name}/config")
+    public ResponseEntity<?> updateBookmarkConfig(@PathVariable String bookmarkName,
+                                                @RequestBody BookmarkConfig config) {
+        try {
+            if (bookmarkService.updateBookmarkConfig(bookmarkName, config)) {
+                return successResp;
+            }
+        } catch (Exception e) {}
+        return badReqResp;
+    }
+
+    @PostMapping("/bookmark/{bookmark-name}/config")
+    public ResponseEntity<?> saveBookmarkConfig(@PathVariable String bookmarkName,
+                                                  @RequestBody BookmarkConfig config) {
+        try {
+            if (bookmarkService.saveBookmarkConfig(bookmarkName, config)) {
+                return successResp;
+            }
+        } catch (Exception e) {}
+        return badReqResp;
+    }
+
+    @GetMapping("/bookmark/{bookmark-name}/state")
+    public BookmarkState getBookmarkState(@PathVariable String bookmarkName) {
+        return bookmarkService.getState(bookmarkName);
+    }
+
+    @PostMapping("/bookmark/{bookmark-name}/state")
+    public ResponseEntity<?> updateBookmarkMeta(@PathVariable String bookmarkName,
+                                                @RequestBody BookmarkState state) {
+        try {
+            if (bookmarkService.updateState(bookmarkName, state)) {
+                return successResp;
+            }
+        } catch (Exception e) {}
+        return badReqResp;
+    }
+
+    @GetMapping("/bookmark/{bookmark-name}/txn/")
+    public BookmarkTxns getBookmarkTxn(@PathVariable String bookmarkName,
+                                       @RequestParam TxnQuery query)
+    {
+        return bookmarkService.getBookmarkTxn(bookmarkName, query);
+    }
+
+    @PutMapping("/bookmark/{bookmark-name}/txn/")
+    public ResponseEntity<?> updateBookmarkTxn(@PathVariable String bookmarkName,
+                                                  @RequestBody BookmarkTxns txns) {
+        try {
+            if (bookmarkService.updateBookmarkTxn(bookmarkName, txns)) {
+                return successResp;
+            }
+        } catch (Exception e) {}
+        return badReqResp;
+    }
+
+    @PostMapping("/bookmark/{bookmark-name}/txn/")
+    public ResponseEntity<?> saveBookmarkTxn(@PathVariable String bookmarkName,
+                                                @RequestBody BookmarkTxns txns) {
+        try {
+            if (bookmarkService.saveBookmarkTxn(bookmarkName, txns)) {
+                return successResp;
+            }
+        } catch (Exception e) {}
+        return badReqResp;
+    }
+
+    @GetMapping("/bookmark/{bookmark-name}/values/")
+    public BookmarkValues getBookmarkTxn(@PathVariable String bookmarkName)
+    {
+        return bookmarkService.getBookmarkValues(bookmarkName);
+    }
+
+    @PutMapping("/bookmark/{bookmark-name}/values/")
+    public ResponseEntity<?> updateBookmarkTxn(@PathVariable String bookmarkName,
+                                               @RequestBody BookmarkValues values) {
+        try {
+            if (bookmarkService.updateBookmarkValues(bookmarkName, values)) {
+                return successResp;
+            }
+        } catch (Exception e) {}
+        return badReqResp;
+    }
+
+    @PostMapping("/bookmark/{bookmark-name}/values/")
+    public ResponseEntity<?> saveBookmarkTxn(@PathVariable String bookmarkName,
+                                             @RequestBody BookmarkValues values) {
+        try {
+            if (bookmarkService.saveBookmarkValues(bookmarkName, values)) {
+                return successResp;
+            }
+        } catch (Exception e) {}
+        return badReqResp;
+    }
+
+    //check context exists
+    @GetMapping("/bookmark/{bookmark-name}/context/{context-name}/")
+    public Map<String, Boolean> contextExists(@PathVariable String bookmarkName, @PathVariable String contextName)
+    {
+        return Collections.singletonMap("success", bookmarkService.contextExists(bookmarkName, contextName));
+    }
+
+    @PostMapping("/bookmark/{bookmark-name}/context/{context-name}/")
+    public ResponseEntity<?> saveContextTxn(@PathVariable String bookmarkName,
+                                            @PathVariable String contextName,
+                                            @RequestBody ContextMetadata meta) {
+        try {
+            meta.setName(contextName);
+            if (bookmarkService.createContext(bookmarkName, meta)) {
+                return successResp;
+            }
+        } catch (Exception e) {}
+        return badReqResp;
+    }
+
+    @GetMapping("/bookmark/{bookmark-name}/context/{context-name}/txn/")
+    public BookmarkTxns getContextTxn(@PathVariable String bookmarkName,
+                                      @PathVariable String contextName,
+                                       @RequestParam TxnQuery query)
+    {
+        query.setContext(contextName);
+        return bookmarkService.getBookmarkTxn(bookmarkName, query);
+    }
+
+    @PutMapping("/bookmark/{bookmark-name}/context/{context-name}/txn/")
+    public ResponseEntity<?> updateContextTxn(@PathVariable String bookmarkName,
+                                              @PathVariable String contextName,
+                                               @RequestBody BookmarkTxns txns) {
+        try {
+            txns.setContext(contextName);
+            if (bookmarkService.updateBookmarkTxn(bookmarkName, txns)) {
+                return successResp;
+            }
+        } catch (Exception e) {}
+        return badReqResp;
+    }
+
+    @PostMapping("/bookmark/{bookmark-name}/context/{context-name}/txn/")
+    public ResponseEntity<?> saveContextTxn(@PathVariable String bookmarkName,
+                                            @PathVariable String contextName,
+                                             @RequestBody BookmarkTxns txns) {
+        try {
+            txns.setContext(contextName);
+            if (bookmarkService.saveBookmarkTxn(bookmarkName, txns)) {
+                return successResp;
+            }
+        } catch (Exception e) {}
+        return badReqResp;
+    }
+
+    @GetMapping("/bookmark/{bookmark-name}/context/{context-name}/values/")
+    public BookmarkValues getContextTxn(@PathVariable String bookmarkName, @PathVariable String contextName)
+    {
+        return bookmarkService.getContextValues(bookmarkName, contextName);
+    }
+
+    @PutMapping("/bookmark/{bookmark-name}/context/{context-name}/values/")
+    public ResponseEntity<?> updateContextTxn(@PathVariable String bookmarkName,
+                                              @PathVariable String contextName,
+                                               @RequestBody BookmarkValues values) {
+        try {
+            values.setContext(contextName);
+            if (bookmarkService.updateBookmarkValues(bookmarkName, values)) {
+                return successResp;
+            }
+        } catch (Exception e) {}
+        return badReqResp;
+    }
+
+    @PostMapping("/bookmark/{bookmark-name}/context/{context-name}/values/")
+    public ResponseEntity<?> saveContextTxn(@PathVariable String bookmarkName,
+                                            @PathVariable String contextName,
+                                            @RequestBody BookmarkValues values) {
+        try {
+            values.setContext(contextName);
+            if (bookmarkService.saveBookmarkValues(bookmarkName, values)) {
+                return successResp;
+            }
+        } catch (Exception e) {}
+        return badReqResp;
+    }
+
     //create bookmark
     /*@PutMapping("/bookmark/{bookmark-name}")
     public ResponseEntity<?> createBookmarkUpdateMeta(@PathVariable String bookmarkName,
@@ -61,12 +268,7 @@ public class BookmarkController2 {
         return badReqResp;
     }*/
 
-    //get bookmark meta
-    @GetMapping("/bookmark/{bookmark-name}/meta")
-    public BookmarkMetadata getBookmarkMeta(@PathVariable String bookmarkName)
-    {
-        return bookmarkService.getBookmarkMetadata(bookmarkName);
-    }
+
 
     //update bookmark config
     /*@PutMapping("/bookmark/{bookmark-name}/meta")
